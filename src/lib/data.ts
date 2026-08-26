@@ -87,28 +87,15 @@ function serializePresupuesto(presupuesto: {
 export async function ensureInitialCatalogs() {
   await connectToMongo();
 
-  for (const rawName of TALLERES_INICIALES) {
-    const nombre = normalizeTallerName(rawName);
-    const regex = new RegExp(`^${escapeRegex(nombre)}$`, "i");
-    const existing = await TallerModel.findOne({ nombre: regex }).sort({ createdAt: 1 });
+  const totalTalleres = await TallerModel.countDocuments();
 
-    if (existing) {
-      if (existing.nombre !== nombre) {
-        existing.nombre = nombre;
-        await existing.save();
-      }
-
-      await TallerModel.deleteMany({
-        _id: { $ne: existing._id },
-        nombre: regex,
-      });
-      continue;
-    }
-
-    await TallerModel.create({
-      nombre,
-      activo: true,
-    });
+  if (totalTalleres === 0) {
+    await TallerModel.insertMany(
+      TALLERES_INICIALES.map((rawName) => ({
+        nombre: normalizeTallerName(rawName),
+        activo: true,
+      })),
+    );
   }
 }
 

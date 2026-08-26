@@ -195,6 +195,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 - El seed de talleres debe comportarse de manera case-insensitive para evitar duplicados por diferencias entre mayúsculas y minúsculas.
 - La creación y edición de talleres debe rechazar nombres repetidos aunque cambie solo el casing.
+- El seed inicial de talleres debe ejecutarse solo cuando la colección de talleres está vacía, para no recrear talleres que fueron renombrados o eliminados desde la interfaz.
 
 ## Variables de entorno esperadas
 

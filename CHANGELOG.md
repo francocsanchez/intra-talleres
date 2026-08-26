@@ -12,3 +12,5 @@
 - Se agregó el CRUD completo de talleres con endpoints dedicados para alta, edición y eliminación protegida cuando existen presupuestos asociados.
 - Se corrigió un bug de duplicación en talleres causado por el seed automático sensible a mayúsculas/minúsculas.
 - Se normalizó la creación y edición de talleres para validar duplicados en forma case-insensitive y se limpió el duplicado existente de `Gomeria F1`.
+- Se corrigió un segundo bug en el que renombrar o eliminar un taller base hacía que el seed lo recreara automáticamente al volver a listar.
+- El seed de talleres ahora solo corre cuando la colección está vacía por completo, respetando cambios manuales posteriores del usuario.
