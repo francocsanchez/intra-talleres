@@ -191,6 +191,11 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
   - `Media`
   - `Baja`
 
+## Reglas de catalogo de talleres
+
+- El seed de talleres debe comportarse de manera case-insensitive para evitar duplicados por diferencias entre mayúsculas y minúsculas.
+- La creación y edición de talleres debe rechazar nombres repetidos aunque cambie solo el casing.
+
 ## Variables de entorno esperadas
 
 - `MONGODB_URI`

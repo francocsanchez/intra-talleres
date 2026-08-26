@@ -8,6 +8,14 @@ function sanitizeOptionalString(value?: string | null) {
   return value || undefined;
 }
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeTallerName(value: string) {
+  return value.trim();
+}
+
 function sanitizePrioridad(value?: string | null): PresupuestoDTO["prioridad"] {
   if (!value) {
     return undefined;
@@ -79,20 +87,29 @@ function serializePresupuesto(presupuesto: {
 export async function ensureInitialCatalogs() {
   await connectToMongo();
 
-  await Promise.all(
-    TALLERES_INICIALES.map((nombre) =>
-      TallerModel.updateOne(
-        { nombre },
-        {
-          $setOnInsert: {
-            nombre,
-            activo: true,
-          },
-        },
-        { upsert: true },
-      ),
-    ),
-  );
+  for (const rawName of TALLERES_INICIALES) {
+    const nombre = normalizeTallerName(rawName);
+    const regex = new RegExp(`^${escapeRegex(nombre)}$`, "i");
+    const existing = await TallerModel.findOne({ nombre: regex }).sort({ createdAt: 1 });
+
+    if (existing) {
+      if (existing.nombre !== nombre) {
+        existing.nombre = nombre;
+        await existing.save();
+      }
+
+      await TallerModel.deleteMany({
+        _id: { $ne: existing._id },
+        nombre: regex,
+      });
+      continue;
+    }
+
+    await TallerModel.create({
+      nombre,
+      activo: true,
+    });
+  }
 }
 
 export async function getTalleres() {
@@ -108,16 +125,20 @@ export async function createTallerRecord(input: {
   activo: boolean;
 }) {
   await connectToMongo();
+  const nombre = normalizeTallerName(input.nombre);
 
   const existing = await TallerModel.findOne({
-    nombre: { $regex: `^${input.nombre}$`, $options: "i" },
+    nombre: { $regex: `^${escapeRegex(nombre)}$`, $options: "i" },
   }).lean();
 
   if (existing) {
     throw new Error("Ya existe un taller con ese nombre.");
   }
 
-  const created = await TallerModel.create(input);
+  const created = await TallerModel.create({
+    ...input,
+    nombre,
+  });
   return serializeTaller(created.toObject());
 }
 
@@ -130,11 +151,12 @@ export async function updateTallerRecord(
   },
 ) {
   await connectToMongo();
+  const normalizedNombre = input.nombre ? normalizeTallerName(input.nombre) : undefined;
 
-  if (input.nombre) {
+  if (normalizedNombre) {
     const existing = await TallerModel.findOne({
       _id: { $ne: id },
-      nombre: { $regex: `^${input.nombre}$`, $options: "i" },
+      nombre: { $regex: `^${escapeRegex(normalizedNombre)}$`, $options: "i" },
     }).lean();
 
     if (existing) {
@@ -147,6 +169,7 @@ export async function updateTallerRecord(
     {
       $set: {
         ...input,
+        nombre: normalizedNombre,
         tipoTrabajo: sanitizeOptionalString(input.tipoTrabajo),
       },
     },
