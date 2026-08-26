@@ -3,14 +3,16 @@
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import type { ReactNode } from "react";
 import {
-  AlertCircle,
-  CarFront,
+  BarChart3,
   ClipboardList,
-  Filter,
   LoaderCircle,
+  Pencil,
+  Plus,
   Search,
+  Settings,
   ShieldCheck,
-  Wrench,
+  Trash2,
+  TriangleAlert,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +42,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { PRESUPUESTO_ESTADOS } from "@/lib/constants";
+import { PRESUPUESTO_ESTADOS, PRIORIDAD_OPTIONS } from "@/lib/constants";
 import {
   calculateCostoConIva,
   formatCurrency,
@@ -53,12 +55,15 @@ import type {
   TallerDTO,
   UnidadDTO,
 } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type DashboardShellProps = {
   initialPresupuestos: PresupuestoDTO[];
   initialTalleres: TallerDTO[];
   initialError?: string | null;
 };
+
+type ViewMode = "dashboard" | "presupuestos" | "configuracion";
 
 type FormState = {
   interno: string;
@@ -78,6 +83,12 @@ type FilterState = {
   tallerId: string;
   dominio: string;
   interno: string;
+};
+
+type TallerFormState = {
+  nombre: string;
+  tipoTrabajo: string;
+  activo: "true" | "false";
 };
 
 const initialFormState: FormState = {
@@ -100,6 +111,12 @@ const initialFilters: FilterState = {
   interno: "",
 };
 
+const initialTallerFormState: TallerFormState = {
+  nombre: "",
+  tipoTrabajo: "",
+  activo: "true",
+};
+
 function getEstadoTone(estado: PresupuestoEstado) {
   switch (estado) {
     case "Aprobado":
@@ -110,6 +127,19 @@ function getEstadoTone(estado: PresupuestoEstado) {
       return "bg-secondary text-secondary-foreground";
     default:
       return "bg-accent text-accent-foreground";
+  }
+}
+
+function getPrioridadTone(prioridad?: string) {
+  switch (prioridad) {
+    case "Alta":
+      return "bg-destructive text-white";
+    case "Media":
+      return "bg-secondary text-secondary-foreground";
+    case "Baja":
+      return "bg-accent text-accent-foreground";
+    default:
+      return "bg-muted text-muted-foreground";
   }
 }
 
@@ -128,18 +158,61 @@ export function DashboardShell({
   initialTalleres,
   initialError,
 }: DashboardShellProps) {
+  const [activeView, setActiveView] = useState<ViewMode>("dashboard");
   const [presupuestos, setPresupuestos] = useState(initialPresupuestos);
-  const [talleres] = useState(initialTalleres);
+  const [talleres, setTalleres] = useState(initialTalleres);
   const [vehicle, setVehicle] = useState<UnidadDTO | null>(null);
   const [form, setForm] = useState<FormState>(initialFormState);
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [feedback, setFeedback] = useState<string | null>(initialError || null);
   const [lookupMessage, setLookupMessage] = useState<string | null>(null);
+  const [tallerForm, setTallerForm] = useState<TallerFormState>(initialTallerFormState);
+  const [editingTallerId, setEditingTallerId] = useState<string | null>(null);
   const [isSubmitting, startSubmitTransition] = useTransition();
   const [isRefreshing, startRefreshTransition] = useTransition();
   const [isLookingUp, startLookupTransition] = useTransition();
+  const [isSavingTaller, startSavingTallerTransition] = useTransition();
+  const [isDeletingTaller, startDeletingTallerTransition] = useTransition();
   const deferredDominio = useDeferredValue(filters.dominio);
   const deferredInterno = useDeferredValue(filters.interno);
+
+  async function refreshPresupuestos() {
+    const params = new URLSearchParams();
+
+    if (filters.estado !== "all") params.set("estado", filters.estado);
+    if (filters.tallerId !== "all") params.set("tallerId", filters.tallerId);
+    if (deferredDominio.trim()) params.set("dominio", deferredDominio.trim());
+    if (deferredInterno.trim()) params.set("interno", deferredInterno.trim());
+
+    try {
+      const data = await parseJsonResponse<{ presupuestos: PresupuestoDTO[] }>(
+        await fetch(`/api/presupuestos?${params.toString()}`, {
+          cache: "no-store",
+        }),
+      );
+      setPresupuestos(data.presupuestos);
+      setFeedback(null);
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "No pudimos refrescar la lista de presupuestos.",
+      );
+    }
+  }
+
+  async function refreshTalleres() {
+    try {
+      const data = await parseJsonResponse<{ talleres: TallerDTO[] }>(
+        await fetch("/api/talleres", { cache: "no-store" }),
+      );
+      setTalleres(data.talleres);
+    } catch (error) {
+      setFeedback(
+        error instanceof Error ? error.message : "No pudimos refrescar los talleres.",
+      );
+    }
+  }
 
   const costoPreview = useMemo(() => {
     const parsed = Number(form.costo);
@@ -155,12 +228,14 @@ export function DashboardShell({
       total: presupuestos.length,
       pendientes: 0,
       aprobados: 0,
+      rechazados: 0,
       revisar: 0,
     };
 
     for (const presupuesto of presupuestos) {
       if (presupuesto.estado === "Pendiente") counts.pendientes += 1;
       if (presupuesto.estado === "Aprobado") counts.aprobados += 1;
+      if (presupuesto.estado === "Rechazado") counts.rechazados += 1;
       if (presupuesto.estado === "Revisar") counts.revisar += 1;
     }
 
@@ -168,30 +243,10 @@ export function DashboardShell({
   }, [presupuestos]);
 
   useEffect(() => {
-    const params = new URLSearchParams();
-
-    if (filters.estado !== "all") params.set("estado", filters.estado);
-    if (filters.tallerId !== "all") params.set("tallerId", filters.tallerId);
-    if (deferredDominio.trim()) params.set("dominio", deferredDominio.trim());
-    if (deferredInterno.trim()) params.set("interno", deferredInterno.trim());
-
     startRefreshTransition(async () => {
-      try {
-        const data = await parseJsonResponse<{ presupuestos: PresupuestoDTO[] }>(
-          await fetch(`/api/presupuestos?${params.toString()}`, {
-            cache: "no-store",
-          }),
-        );
-        setPresupuestos(data.presupuestos);
-        setFeedback(null);
-      } catch (error) {
-        setFeedback(
-          error instanceof Error
-            ? error.message
-            : "No pudimos refrescar la lista de presupuestos.",
-        );
-      }
+      await refreshPresupuestos();
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.estado, filters.tallerId, deferredDominio, deferredInterno]);
 
   function updateForm<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -202,6 +257,11 @@ export function DashboardShell({
     setForm(initialFormState);
     setVehicle(null);
     setLookupMessage(null);
+  }
+
+  function resetTallerForm() {
+    setTallerForm(initialTallerFormState);
+    setEditingTallerId(null);
   }
 
   function lookupInterno() {
@@ -246,6 +306,7 @@ export function DashboardShell({
           body: JSON.stringify({
             ...form,
             interno: form.interno.trim(),
+            prioridad: form.prioridad || undefined,
           }),
         });
 
@@ -286,72 +347,151 @@ export function DashboardShell({
     });
   }
 
+  function startEditTaller(taller: TallerDTO) {
+    setActiveView("configuracion");
+    setEditingTallerId(taller.id);
+    setTallerForm({
+      nombre: taller.nombre,
+      tipoTrabajo: taller.tipoTrabajo || "",
+      activo: taller.activo ? "true" : "false",
+    });
+  }
+
+  function saveTaller() {
+    startSavingTallerTransition(async () => {
+      try {
+        const method = editingTallerId ? "PATCH" : "POST";
+        const url = editingTallerId
+          ? `/api/talleres/${editingTallerId}`
+          : "/api/talleres";
+
+        await parseJsonResponse(
+          await fetch(url, {
+            method,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              nombre: tallerForm.nombre,
+              tipoTrabajo: tallerForm.tipoTrabajo || undefined,
+              activo: tallerForm.activo === "true",
+            }),
+          }),
+        );
+
+        await refreshTalleres();
+        setFeedback(
+          editingTallerId ? "Taller actualizado." : "Taller creado correctamente.",
+        );
+        resetTallerForm();
+      } catch (error) {
+        setFeedback(
+          error instanceof Error ? error.message : "No pudimos guardar el taller.",
+        );
+      }
+    });
+  }
+
+  function deleteTaller(id: string) {
+    startDeletingTallerTransition(async () => {
+      try {
+        await parseJsonResponse(
+          await fetch(`/api/talleres/${id}`, {
+            method: "DELETE",
+          }),
+        );
+
+        if (editingTallerId === id) {
+          resetTallerForm();
+        }
+
+        if (filters.tallerId === id) {
+          setFilters((current) => ({ ...current, tallerId: "all" }));
+        }
+
+        await refreshTalleres();
+        setFeedback("Taller eliminado.");
+      } catch (error) {
+        setFeedback(
+          error instanceof Error ? error.message : "No pudimos eliminar el taller.",
+        );
+      }
+    });
+  }
+
+  const navigationItems: Array<{
+    id: ViewMode;
+    label: string;
+    description: string;
+    icon: typeof ClipboardList;
+  }> = [
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      description: "Resumen por estado",
+      icon: BarChart3,
+    },
+    {
+      id: "presupuestos",
+      label: "Presupuestos",
+      description: "Carga y seguimiento",
+      icon: ClipboardList,
+    },
+    {
+      id: "configuracion",
+      label: "Configuración",
+      description: "CRUD de talleres",
+      icon: Settings,
+    },
+  ];
+
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto flex w-full max-w-[1720px] flex-col gap-4 px-3 py-3 md:px-4 lg:px-5">
-        <section className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-          <Card className="overflow-hidden border-border/70 shadow-none">
-            <CardHeader className="gap-3 border-b border-border/70 pb-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-2">
-                  <p className="text-[0.68rem] font-medium uppercase tracking-[0.32em] text-muted-foreground">
-                    Mesa de control
-                  </p>
-                  <CardTitle className="font-heading text-3xl tracking-[-0.05em]">
-                    Presupuestos de taller en una sola vista
-                  </CardTitle>
-                  <CardDescription className="max-w-2xl text-sm text-muted-foreground">
-                    Reemplazamos la lógica de hojas separadas por un tablero operativo
-                    compacto, con lookup por interno y trazabilidad de estado en tiempo
-                    real.
-                  </CardDescription>
-                </div>
-                <div className="hidden min-w-[220px] items-stretch gap-2 rounded-lg border border-border/70 bg-secondary/50 p-2 md:flex">
-                  <div className="flex-1 rounded-md border border-border/70 bg-background p-2">
-                    <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-                      Tono visual
-                    </p>
-                    <p className="mt-1 text-sm font-medium">Mesa técnica compacta</p>
-                  </div>
-                  <div className="w-16 rounded-md bg-[repeating-linear-gradient(135deg,theme(colors.foreground)_0_3px,transparent_3px_9px)] opacity-8" />
-                </div>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-3">
-                <MetricTile
-                  icon={ClipboardList}
-                  label="Presupuestos visibles"
-                  value={String(resumen.total)}
-                />
-                <MetricTile icon={ShieldCheck} label="Aprobados" value={String(resumen.aprobados)} />
-                <MetricTile
-                  icon={AlertCircle}
-                  label="Pendientes + revisar"
-                  value={String(resumen.pendientes + resumen.revisar)}
-                />
-              </div>
-            </CardHeader>
-          </Card>
+        <nav className="rounded-xl border border-border/70 bg-background/95 p-2 shadow-none backdrop-blur">
+          <div className="grid gap-2 md:grid-cols-3">
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeView === item.id;
 
-          <Card className="border-border/70 shadow-none">
-            <CardHeader className="pb-3">
-              <p className="text-[0.68rem] font-medium uppercase tracking-[0.32em] text-muted-foreground">
-                Reglas activas
-              </p>
-              <CardTitle className="font-heading text-xl tracking-[-0.04em]">
-                Fuente de datos y operación del MVP
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-2 text-sm">
-              <RuleRow icon={CarFront} title="Unidades desde SQL" value="Solo lectura por interno." />
-              <RuleRow icon={Wrench} title="Datos propios en Mongo" value="Base local intra_talleres." />
-              <RuleRow
-                icon={Filter}
-                title="Estados cerrados"
-                value="Pendiente, Aprobado, Rechazado y Revisar."
-              />
-            </CardContent>
-          </Card>
-        </section>
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveView(item.id)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
+                    active
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border/70 bg-secondary/35 text-foreground hover:bg-secondary/60",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "rounded-md border p-2",
+                      active
+                        ? "border-white/20 bg-white/10"
+                        : "border-border/70 bg-background",
+                    )}
+                  >
+                    <Icon className="size-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">{item.label}</span>
+                    <span
+                      className={cn(
+                        "block text-xs",
+                        active ? "text-white/70" : "text-muted-foreground",
+                      )}
+                    >
+                      {item.description}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
         {feedback ? (
           <div className="rounded-lg border border-border/80 bg-secondary/60 px-3 py-2 text-sm text-foreground">
@@ -359,370 +499,580 @@ export function DashboardShell({
           </div>
         ) : null}
 
-        <section className="grid gap-4 xl:grid-cols-[410px_minmax(0,1fr)]">
-          <Card className="border-border/70 shadow-none">
-            <CardHeader className="border-b border-border/70 pb-3">
-              <p className="text-[0.68rem] font-medium uppercase tracking-[0.32em] text-muted-foreground">
-                Alta rápida
-              </p>
-              <CardTitle className="font-heading text-2xl tracking-[-0.04em]">
-                Nuevo presupuesto
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="grid gap-2">
-                <Label htmlFor="interno">Interno</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="interno"
-                    value={form.interno}
-                    onChange={(event) => updateForm("interno", event.target.value)}
-                    placeholder="Ej. 10342"
+        {activeView === "dashboard" ? (
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <MetricTile
+              icon={ClipboardList}
+              label="Total"
+              value={String(resumen.total)}
+              caption="Presupuestos visibles"
+            />
+            <MetricTile
+              icon={TriangleAlert}
+              label="Pendiente"
+              value={String(resumen.pendientes)}
+              caption="Esperando definición"
+            />
+            <MetricTile
+              icon={ShieldCheck}
+              label="Aprobado"
+              value={String(resumen.aprobados)}
+              caption="Listos para avanzar"
+            />
+            <MetricTile
+              icon={TriangleAlert}
+              label="Revisar"
+              value={String(resumen.revisar)}
+              caption="Casos a validar"
+            />
+            <MetricTile
+              icon={Trash2}
+              label="Rechazado"
+              value={String(resumen.rechazados)}
+              caption="Descartados"
+            />
+          </section>
+        ) : null}
+
+        {activeView === "presupuestos" ? (
+          <section className="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
+            <Card className="border-border/70 shadow-none">
+              <CardHeader className="border-b border-border/70 pb-3">
+                <CardTitle className="font-heading text-2xl tracking-[-0.04em]">
+                  Carga de presupuesto
+                </CardTitle>
+                <CardDescription>
+                  Buscá la unidad por interno y registrá el presupuesto con estado inicial
+                  pendiente.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="interno">Interno</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="interno"
+                      value={form.interno}
+                      onChange={(event) => updateForm("interno", event.target.value)}
+                      placeholder="Ej. 10342"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={lookupInterno}
+                      disabled={isLookingUp}
+                    >
+                      {isLookingUp ? (
+                        <LoaderCircle className="size-4 animate-spin" />
+                      ) : (
+                        <Search className="size-4" />
+                      )}
+                      Buscar
+                    </Button>
+                  </div>
+                  {lookupMessage ? (
+                    <p className="text-xs text-muted-foreground">{lookupMessage}</p>
+                  ) : null}
+                </div>
+
+                <div className="rounded-lg border border-border/70 bg-secondary/40 p-3">
+                  <div className="grid gap-1">
+                    <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                      Unidad vinculada
+                    </p>
+                    <p className="font-medium">
+                      {vehicle
+                        ? `${vehicle.dominio} · ${vehicle.marca} ${vehicle.modelo}`
+                        : "Buscá un interno para autocompletar dominio, marca y modelo."}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {vehicle
+                        ? `KM de base: ${vehicle.km} · Chasis: ${vehicle.chasis || "s/d"}`
+                        : "Sin datos aún."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-2 sm:col-span-2">
+                    <Label htmlFor="taller">Taller</Label>
+                    <Select
+                      value={form.tallerId}
+                      onValueChange={(value) => updateForm("tallerId", value ?? "")}
+                    >
+                      <SelectTrigger id="taller" className="w-full">
+                        <SelectValue placeholder="Seleccionar taller" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {talleres.map((taller) => (
+                          <SelectItem key={taller.id} value={taller.id}>
+                            {taller.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Field label="KM informado" htmlFor="km">
+                    <Input
+                      id="km"
+                      value={form.km}
+                      onChange={(event) => updateForm("km", event.target.value)}
+                      type="number"
+                      min="0"
+                    />
+                  </Field>
+                  <Field label="Costo ARS" htmlFor="costo">
+                    <Input
+                      id="costo"
+                      value={form.costo}
+                      onChange={(event) => updateForm("costo", event.target.value)}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                    />
+                  </Field>
+                  <Field label="Nro presupuesto" htmlFor="nroPresupuesto">
+                    <Input
+                      id="nroPresupuesto"
+                      value={form.nroPresupuesto}
+                      onChange={(event) => updateForm("nroPresupuesto", event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Prioridad" htmlFor="prioridad">
+                    <Select
+                      value={form.prioridad || "none"}
+                      onValueChange={(value) =>
+                        updateForm("prioridad", value === "none" ? "" : (value ?? ""))
+                      }
+                    >
+                      <SelectTrigger id="prioridad" className="w-full">
+                        <SelectValue placeholder="Seleccionar prioridad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin definir</SelectItem>
+                        {PRIORIDAD_OPTIONS.map((priority) => (
+                          <SelectItem key={priority} value={priority}>
+                            {priority}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Ingreso a taller" htmlFor="fechaIngresoTaller">
+                    <Input
+                      id="fechaIngresoTaller"
+                      value={form.fechaIngresoTaller}
+                      onChange={(event) =>
+                        updateForm("fechaIngresoTaller", event.target.value)
+                      }
+                      type="date"
+                    />
+                  </Field>
+                  <Field label="Egreso de taller" htmlFor="fechaEgresoTaller">
+                    <Input
+                      id="fechaEgresoTaller"
+                      value={form.fechaEgresoTaller}
+                      onChange={(event) =>
+                        updateForm("fechaEgresoTaller", event.target.value)
+                      }
+                      type="date"
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Detalle" htmlFor="detalle">
+                  <Textarea
+                    id="detalle"
+                    value={form.detalle}
+                    onChange={(event) => updateForm("detalle", event.target.value)}
+                    rows={3}
+                    placeholder="Trabajo presupuestado o reparación a considerar"
                   />
+                </Field>
+
+                <Field label="Observaciones" htmlFor="observaciones">
+                  <Textarea
+                    id="observaciones"
+                    value={form.observaciones}
+                    onChange={(event) => updateForm("observaciones", event.target.value)}
+                    rows={4}
+                    placeholder="Notas internas, valor de toma o comentarios del caso"
+                  />
+                </Field>
+
+                <div className="rounded-lg border border-border/70 bg-background p-3">
+                  <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                    Vista previa de costo
+                  </p>
+                  <div className="mt-2 flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Neto</p>
+                      <p className="text-lg font-semibold">
+                        {form.costo ? formatCurrency(Number(form.costo)) : "$ 0,00"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Con IVA</p>
+                      <p className="font-heading text-2xl tracking-[-0.04em]">
+                        {costoPreview ? formatCurrency(costoPreview) : "$ 0,00"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
                   <Button
                     type="button"
-                    variant="outline"
-                    className="shrink-0"
-                    onClick={lookupInterno}
-                    disabled={isLookingUp}
+                    className="flex-1"
+                    onClick={createPresupuesto}
+                    disabled={isSubmitting || !vehicle}
                   >
-                    {isLookingUp ? (
-                      <LoaderCircle className="size-4 animate-spin" />
-                    ) : (
-                      <Search className="size-4" />
-                    )}
-                    Buscar
+                    {isSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
+                    Guardar presupuesto
+                  </Button>
+                  <Button type="button" variant="outline" onClick={resetForm}>
+                    Limpiar
                   </Button>
                 </div>
-                {lookupMessage ? (
-                  <p className="text-xs text-muted-foreground">{lookupMessage}</p>
-                ) : null}
-              </div>
+              </CardContent>
+            </Card>
 
-              <div className="rounded-lg border border-border/70 bg-secondary/40 p-3">
-                <div className="grid gap-1">
-                  <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-                    Unidad vinculada
-                  </p>
-                  <p className="font-medium">
-                    {vehicle
-                      ? `${vehicle.dominio} · ${vehicle.marca} ${vehicle.modelo}`
-                      : "Buscá un interno para autocompletar dominio, marca y modelo."}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {vehicle
-                      ? `KM de base: ${vehicle.km} · Chasis: ${vehicle.chasis || "s/d"}`
-                      : "Sin datos aún."}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="grid gap-2 sm:col-span-2">
-                  <Label htmlFor="taller">Taller</Label>
-                  <Select
-                    value={form.tallerId}
-                    onValueChange={(value) => updateForm("tallerId", value ?? "")}
-                  >
-                    <SelectTrigger id="taller" className="w-full">
-                      <SelectValue placeholder="Seleccionar taller" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {talleres.map((taller) => (
-                        <SelectItem key={taller.id} value={taller.id}>
-                          {taller.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Field label="KM informado" htmlFor="km">
-                  <Input
-                    id="km"
-                    value={form.km}
-                    onChange={(event) => updateForm("km", event.target.value)}
-                    type="number"
-                    min="0"
-                  />
-                </Field>
-                <Field label="Costo ARS" htmlFor="costo">
-                  <Input
-                    id="costo"
-                    value={form.costo}
-                    onChange={(event) => updateForm("costo", event.target.value)}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                  />
-                </Field>
-                <Field label="Nro presupuesto" htmlFor="nroPresupuesto">
-                  <Input
-                    id="nroPresupuesto"
-                    value={form.nroPresupuesto}
-                    onChange={(event) => updateForm("nroPresupuesto", event.target.value)}
-                  />
-                </Field>
-                <Field label="Prioridad" htmlFor="prioridad">
-                  <Input
-                    id="prioridad"
-                    value={form.prioridad}
-                    onChange={(event) => updateForm("prioridad", event.target.value)}
-                    placeholder="Alta / Media / Baja"
-                  />
-                </Field>
-                <Field label="Ingreso a taller" htmlFor="fechaIngresoTaller">
-                  <Input
-                    id="fechaIngresoTaller"
-                    value={form.fechaIngresoTaller}
-                    onChange={(event) =>
-                      updateForm("fechaIngresoTaller", event.target.value)
-                    }
-                    type="date"
-                  />
-                </Field>
-                <Field label="Egreso de taller" htmlFor="fechaEgresoTaller">
-                  <Input
-                    id="fechaEgresoTaller"
-                    value={form.fechaEgresoTaller}
-                    onChange={(event) =>
-                      updateForm("fechaEgresoTaller", event.target.value)
-                    }
-                    type="date"
-                  />
-                </Field>
-              </div>
-
-              <Field label="Detalle" htmlFor="detalle">
-                <Textarea
-                  id="detalle"
-                  value={form.detalle}
-                  onChange={(event) => updateForm("detalle", event.target.value)}
-                  rows={3}
-                  placeholder="Trabajo presupuestado o reparación a considerar"
-                />
-              </Field>
-
-              <Field label="Observaciones" htmlFor="observaciones">
-                <Textarea
-                  id="observaciones"
-                  value={form.observaciones}
-                  onChange={(event) => updateForm("observaciones", event.target.value)}
-                  rows={4}
-                  placeholder="Notas internas, valor de toma o comentarios del caso"
-                />
-              </Field>
-
-              <div className="rounded-lg border border-border/70 bg-background p-3">
-                <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-                  Vista previa de costo
-                </p>
-                <div className="mt-2 flex items-end justify-between gap-3">
+            <Card className="border-border/70 shadow-none">
+              <CardHeader className="border-b border-border/70 pb-3">
+                <div className="flex flex-col gap-3">
                   <div>
-                    <p className="text-xs text-muted-foreground">Neto</p>
-                    <p className="text-lg font-semibold">
-                      {form.costo ? formatCurrency(Number(form.costo)) : "$ 0,00"}
-                    </p>
+                    <CardTitle className="font-heading text-2xl tracking-[-0.04em]">
+                      Seguimiento de presupuestos
+                    </CardTitle>
+                    <CardDescription>
+                      Filtros compactos para reemplazar las hojas separadas por taller.
+                    </CardDescription>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Con IVA</p>
-                    <p className="font-heading text-2xl tracking-[-0.04em]">
-                      {costoPreview ? formatCurrency(costoPreview) : "$ 0,00"}
-                    </p>
+                  <div className="grid gap-2 md:grid-cols-4">
+                    <Input
+                      value={filters.interno}
+                      onChange={(event) =>
+                        setFilters((current) => ({ ...current, interno: event.target.value }))
+                      }
+                      placeholder="Filtrar por interno"
+                    />
+                    <Input
+                      value={filters.dominio}
+                      onChange={(event) =>
+                        setFilters((current) => ({ ...current, dominio: event.target.value }))
+                      }
+                      placeholder="Filtrar por dominio"
+                    />
+                    <Select
+                      value={filters.tallerId}
+                      onValueChange={(value) =>
+                        setFilters((current) => ({ ...current, tallerId: value ?? "all" }))
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Todos los talleres" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los talleres</SelectItem>
+                        {talleres.map((taller) => (
+                          <SelectItem key={taller.id} value={taller.id}>
+                            {taller.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={filters.estado}
+                      onValueChange={(value) =>
+                        setFilters((current) => ({ ...current, estado: value ?? "all" }))
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Todos los estados" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los estados</SelectItem>
+                        {PRESUPUESTO_ESTADOS.map((estado) => (
+                          <SelectItem key={estado} value={estado}>
+                            {estado}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              </div>
+              </CardHeader>
 
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  className="flex-1"
-                  onClick={createPresupuesto}
-                  disabled={isSubmitting || !vehicle}
-                >
-                  {isSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
-                  Guardar presupuesto
-                </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Limpiar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/70 shadow-none">
-            <CardHeader className="border-b border-border/70 pb-3">
-              <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-                <div>
-                  <p className="text-[0.68rem] font-medium uppercase tracking-[0.32em] text-muted-foreground">
-                    Vista consolidada
-                  </p>
-                  <CardTitle className="font-heading text-2xl tracking-[-0.04em]">
-                    Seguimiento unificado por taller
-                  </CardTitle>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[1220px]">
+                    <TableHeader>
+                      <TableRow className="bg-secondary/40">
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Prioridad</TableHead>
+                        <TableHead>Taller</TableHead>
+                        <TableHead>Interno</TableHead>
+                        <TableHead>Dominio</TableHead>
+                        <TableHead>Marca / Modelo</TableHead>
+                        <TableHead>KM</TableHead>
+                        <TableHead>Costo</TableHead>
+                        <TableHead>Costo + IVA</TableHead>
+                        <TableHead>Ingreso</TableHead>
+                        <TableHead>Egreso</TableHead>
+                        <TableHead>Observaciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {presupuestos.length ? (
+                        presupuestos.map((presupuesto) => (
+                          <TableRow key={presupuesto.id} className="align-top">
+                            <TableCell>
+                              <Select
+                                value={presupuesto.estado}
+                                onValueChange={(value) =>
+                                  updateEstado(presupuesto.id, value as PresupuestoEstado)
+                                }
+                              >
+                                <SelectTrigger className="w-[138px] border-none bg-transparent px-0 shadow-none">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {PRESUPUESTO_ESTADOS.map((estado) => (
+                                    <SelectItem key={estado} value={estado}>
+                                      {estado}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Badge className={`mt-2 ${getEstadoTone(presupuesto.estado)}`}>
+                                {presupuesto.estado}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={getPrioridadTone(presupuesto.prioridad)}>
+                                {presupuesto.prioridad || "Sin definir"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-medium">{presupuesto.tallerNombre}</TableCell>
+                            <TableCell>{presupuesto.interno}</TableCell>
+                            <TableCell>{presupuesto.dominio}</TableCell>
+                            <TableCell>
+                              <div className="min-w-[180px]">
+                                <p className="font-medium">{presupuesto.marca}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {presupuesto.modelo}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell>{presupuesto.km}</TableCell>
+                            <TableCell>{formatCurrency(presupuesto.costo)}</TableCell>
+                            <TableCell>{formatCurrency(presupuesto.costoConIva)}</TableCell>
+                            <TableCell className="text-xs">
+                              {presupuesto.fechaIngresoTaller
+                                ? formatDate(presupuesto.fechaIngresoTaller)
+                                : "Sin fecha"}
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {presupuesto.fechaEgresoTaller
+                                ? formatDate(presupuesto.fechaEgresoTaller)
+                                : "Sin fecha"}
+                            </TableCell>
+                            <TableCell className="max-w-[290px]">
+                              <div className="space-y-1">
+                                {presupuesto.nroPresupuesto ? (
+                                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                                    {presupuesto.nroPresupuesto}
+                                  </p>
+                                ) : null}
+                                <p className="text-sm">
+                                  {presupuesto.observaciones
+                                    ? summarizeText(presupuesto.observaciones)
+                                    : "Sin observaciones"}
+                                </p>
+                                {presupuesto.detalle ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    {summarizeText(presupuesto.detalle, 64)}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={12}
+                            className="h-32 text-center text-sm text-muted-foreground"
+                          >
+                            {isRefreshing
+                              ? "Actualizando presupuestos..."
+                              : "Todavía no hay presupuestos para los filtros actuales."}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
-                <div className="grid gap-2 md:grid-cols-4">
+              </CardContent>
+            </Card>
+          </section>
+        ) : null}
+
+        {activeView === "configuracion" ? (
+          <section className="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
+            <Card className="border-border/70 shadow-none">
+              <CardHeader className="border-b border-border/70 pb-3">
+                <CardTitle className="font-heading text-2xl tracking-[-0.04em]">
+                  CRUD de talleres
+                </CardTitle>
+                <CardDescription>
+                  Alta, edición y baja lógica o física del catálogo operativo.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4">
+                <Field label="Nombre del taller" htmlFor="tallerNombre">
                   <Input
-                    value={filters.interno}
+                    id="tallerNombre"
+                    value={tallerForm.nombre}
                     onChange={(event) =>
-                      setFilters((current) => ({ ...current, interno: event.target.value }))
+                      setTallerForm((current) => ({
+                        ...current,
+                        nombre: event.target.value,
+                      }))
                     }
-                    placeholder="Filtrar por interno"
+                    placeholder="Ej. Nuevo taller"
                   />
+                </Field>
+                <Field label="Tipo de trabajo" htmlFor="tipoTrabajo">
                   <Input
-                    value={filters.dominio}
+                    id="tipoTrabajo"
+                    value={tallerForm.tipoTrabajo}
                     onChange={(event) =>
-                      setFilters((current) => ({ ...current, dominio: event.target.value }))
+                      setTallerForm((current) => ({
+                        ...current,
+                        tipoTrabajo: event.target.value,
+                      }))
                     }
-                    placeholder="Filtrar por dominio"
+                    placeholder="Mecánica, chapa, limpieza, gomería"
                   />
+                </Field>
+                <Field label="Estado" htmlFor="activo">
                   <Select
-                    value={filters.tallerId}
+                    value={tallerForm.activo}
                     onValueChange={(value) =>
-                      setFilters((current) => ({ ...current, tallerId: value ?? "all" }))
+                      setTallerForm((current) => ({
+                        ...current,
+                        activo: (value ?? "true") as "true" | "false",
+                      }))
                     }
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Todos los talleres" />
+                    <SelectTrigger id="activo" className="w-full">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos los talleres</SelectItem>
+                      <SelectItem value="true">Activo</SelectItem>
+                      <SelectItem value="false">Inactivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    className="flex-1"
+                    onClick={saveTaller}
+                    disabled={isSavingTaller}
+                  >
+                    {isSavingTaller ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : editingTallerId ? (
+                      <Pencil className="size-4" />
+                    ) : (
+                      <Plus className="size-4" />
+                    )}
+                    {editingTallerId ? "Guardar cambios" : "Crear taller"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={resetTallerForm}>
+                    Limpiar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/70 shadow-none">
+              <CardHeader className="border-b border-border/70 pb-3">
+                <CardTitle className="font-heading text-2xl tracking-[-0.04em]">
+                  Catálogo actual
+                </CardTitle>
+                <CardDescription>
+                  Los talleres usados por presupuestos no se pueden eliminar.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-secondary/40">
+                        <TableHead>Taller</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="w-[180px]">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {talleres.map((taller) => (
-                        <SelectItem key={taller.id} value={taller.id}>
-                          {taller.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={filters.estado}
-                    onValueChange={(value) =>
-                      setFilters((current) => ({ ...current, estado: value ?? "all" }))
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Todos los estados" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los estados</SelectItem>
-                      {PRESUPUESTO_ESTADOS.map((estado) => (
-                        <SelectItem key={estado} value={estado}>
-                          {estado}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table className="min-w-[1120px]">
-                  <TableHeader>
-                    <TableRow className="bg-secondary/40">
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Taller</TableHead>
-                      <TableHead>Interno</TableHead>
-                      <TableHead>Dominio</TableHead>
-                      <TableHead>Marca / Modelo</TableHead>
-                      <TableHead>KM</TableHead>
-                      <TableHead>Costo</TableHead>
-                      <TableHead>Costo + IVA</TableHead>
-                      <TableHead>Ingreso</TableHead>
-                      <TableHead>Egreso</TableHead>
-                      <TableHead>Observaciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {presupuestos.length ? (
-                      presupuestos.map((presupuesto) => (
-                        <TableRow key={presupuesto.id} className="align-top">
+                        <TableRow key={taller.id}>
+                          <TableCell className="font-medium">{taller.nombre}</TableCell>
+                          <TableCell>{taller.tipoTrabajo || "Sin definir"}</TableCell>
                           <TableCell>
-                            <Select
-                              value={presupuesto.estado}
-                              onValueChange={(value) =>
-                                updateEstado(presupuesto.id, value as PresupuestoEstado)
+                            <Badge
+                              className={
+                                taller.activo
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-secondary text-secondary-foreground"
                               }
                             >
-                              <SelectTrigger className="w-[138px] border-none bg-transparent px-0 shadow-none">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {PRESUPUESTO_ESTADOS.map((estado) => (
-                                  <SelectItem key={estado} value={estado}>
-                                    {estado}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Badge className={`mt-2 ${getEstadoTone(presupuesto.estado)}`}>
-                              {presupuesto.estado}
+                              {taller.activo ? "Activo" : "Inactivo"}
                             </Badge>
                           </TableCell>
-                          <TableCell className="font-medium">{presupuesto.tallerNombre}</TableCell>
-                          <TableCell>{presupuesto.interno}</TableCell>
-                          <TableCell>{presupuesto.dominio}</TableCell>
                           <TableCell>
-                            <div className="min-w-[180px]">
-                              <p className="font-medium">{presupuesto.marca}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {presupuesto.modelo}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>{presupuesto.km}</TableCell>
-                          <TableCell>{formatCurrency(presupuesto.costo)}</TableCell>
-                          <TableCell>{formatCurrency(presupuesto.costoConIva)}</TableCell>
-                          <TableCell className="text-xs">
-                            {presupuesto.fechaIngresoTaller
-                              ? formatDate(presupuesto.fechaIngresoTaller)
-                              : "Sin fecha"}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {presupuesto.fechaEgresoTaller
-                              ? formatDate(presupuesto.fechaEgresoTaller)
-                              : "Sin fecha"}
-                          </TableCell>
-                          <TableCell className="max-w-[290px]">
-                            <div className="space-y-1">
-                              {presupuesto.nroPresupuesto ? (
-                                <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                                  {presupuesto.nroPresupuesto}
-                                </p>
-                              ) : null}
-                              <p className="text-sm">
-                                {presupuesto.observaciones
-                                  ? summarizeText(presupuesto.observaciones)
-                                  : "Sin observaciones"}
-                              </p>
-                              {presupuesto.detalle ? (
-                                <p className="text-xs text-muted-foreground">
-                                  {summarizeText(presupuesto.detalle, 64)}
-                                </p>
-                              ) : null}
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => startEditTaller(taller)}
+                              >
+                                <Pencil className="size-4" />
+                                Editar
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => deleteTaller(taller.id)}
+                                disabled={isDeletingTaller}
+                              >
+                                {isDeletingTaller ? (
+                                  <LoaderCircle className="size-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="size-4" />
+                                )}
+                                Eliminar
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          colSpan={11}
-                          className="h-32 text-center text-sm text-muted-foreground"
-                        >
-                          {isRefreshing
-                            ? "Actualizando presupuestos..."
-                            : "Todavía no hay presupuestos para los filtros actuales."}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        ) : null}
       </div>
     </main>
   );
@@ -732,47 +1082,30 @@ function MetricTile({
   icon: Icon,
   label,
   value,
+  caption,
 }: {
   icon: typeof ClipboardList;
   label: string;
   value: string;
+  caption: string;
 }) {
   return (
-    <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-            {label}
-          </p>
-          <p className="mt-1 font-heading text-3xl tracking-[-0.06em]">{value}</p>
+    <Card className="border-border/70 shadow-none">
+      <CardContent className="px-3 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+              {label}
+            </p>
+            <p className="mt-1 font-heading text-4xl tracking-[-0.08em]">{value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{caption}</p>
+          </div>
+          <div className="rounded-md border border-border/70 bg-secondary/35 p-2 text-muted-foreground">
+            <Icon className="size-4" />
+          </div>
         </div>
-        <div className="rounded-md border border-border/70 p-2 text-muted-foreground">
-          <Icon className="size-4" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RuleRow({
-  icon: Icon,
-  title,
-  value,
-}: {
-  icon: typeof ClipboardList;
-  title: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-secondary/30 px-3 py-2">
-      <div className="rounded-md border border-border/70 bg-background p-2">
-        <Icon className="size-4" />
-      </div>
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-xs text-muted-foreground">{value}</p>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 

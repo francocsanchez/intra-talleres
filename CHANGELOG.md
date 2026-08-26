@@ -7,3 +7,6 @@
 - Se crearon APIs para buscar unidades, listar y crear presupuestos, y actualizar estados.
 - Se normalizó el modelo funcional en colecciones de `talleres` y `presupuestos`, con seed inicial de talleres basado en el Excel actual.
 - Se definió una interfaz de ancho completo, compacta y monocromática, usando el preset obligatorio de `shadcn` y el `globals.css` requerido por el proyecto.
+- Se reemplazó el encabezado visual inicial por un navbar con tres vistas: `Dashboard`, `Presupuestos` y `Configuración`.
+- Se cambió `prioridad` a un select controlado con opciones cerradas `Alta`, `Media` y `Baja`.
+- Se agregó el CRUD completo de talleres con endpoints dedicados para alta, edición y eliminación protegida cuando existen presupuestos asociados.

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { PRESUPUESTO_ESTADOS } from "@/lib/constants";
+import { PRESUPUESTO_ESTADOS, PRIORIDAD_OPTIONS } from "@/lib/constants";
 import { calculateCostoConIva } from "@/lib/format";
 
 const optionalTextField = z
@@ -32,7 +32,7 @@ export const createPresupuestoSchema = z.object({
   costo: z.coerce.number().positive(),
   observaciones: z.string().trim().max(500).optional().default(""),
   nroPresupuesto: optionalTextField,
-  prioridad: optionalTextField,
+  prioridad: z.enum(PRIORIDAD_OPTIONS).optional(),
   detalle: optionalTextField,
   fechaIngresoTaller: z.string().trim().optional(),
   fechaEgresoTaller: z.string().trim().optional(),
@@ -41,6 +41,22 @@ export const createPresupuestoSchema = z.object({
 export const updatePresupuestoEstadoSchema = z.object({
   estado: z.enum(PRESUPUESTO_ESTADOS),
 });
+
+export const createTallerSchema = z.object({
+  nombre: z.string().trim().min(1, "Ingresá un nombre de taller.").max(120),
+  tipoTrabajo: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .transform((value) => value || undefined),
+  activo: z.coerce.boolean().default(true),
+});
+
+export const updateTallerSchema = createTallerSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  "No hay cambios para guardar.",
+);
 
 export type CreatePresupuestoInput = z.input<typeof createPresupuestoSchema>;
 export type CreatePresupuestoPayload = z.output<typeof createPresupuestoSchema>;

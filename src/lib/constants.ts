@@ -5,6 +5,8 @@ export const PRESUPUESTO_ESTADOS = [
   "Revisar",
 ] as const;
 
+export const PRIORIDAD_OPTIONS = ["Alta", "Media", "Baja"] as const;
+
 export const TALLERES_INICIALES = [
   "EMT",
   "PROBALANCE",

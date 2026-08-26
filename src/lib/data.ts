@@ -1,4 +1,4 @@
-import { TALLERES_INICIALES } from "@/lib/constants";
+import { PRIORIDAD_OPTIONS, TALLERES_INICIALES } from "@/lib/constants";
 import { connectToMongo } from "@/lib/mongodb";
 import { PresupuestoModel } from "@/lib/models/presupuesto";
 import { TallerModel } from "@/lib/models/taller";
@@ -6,6 +6,16 @@ import type { PresupuestoDTO, PresupuestoFilters, TallerDTO } from "@/lib/types"
 
 function sanitizeOptionalString(value?: string | null) {
   return value || undefined;
+}
+
+function sanitizePrioridad(value?: string | null): PresupuestoDTO["prioridad"] {
+  if (!value) {
+    return undefined;
+  }
+
+  return PRIORIDAD_OPTIONS.includes(value as (typeof PRIORIDAD_OPTIONS)[number])
+    ? (value as PresupuestoDTO["prioridad"])
+    : undefined;
 }
 
 function serializeTaller(taller: {
@@ -57,7 +67,7 @@ function serializePresupuesto(presupuesto: {
     tallerId: presupuesto.tallerId.toString(),
     tallerNombre: presupuesto.tallerNombre,
     nroPresupuesto: sanitizeOptionalString(presupuesto.nroPresupuesto),
-    prioridad: sanitizeOptionalString(presupuesto.prioridad),
+    prioridad: sanitizePrioridad(presupuesto.prioridad),
     detalle: sanitizeOptionalString(presupuesto.detalle),
     fechaIngresoTaller: presupuesto.fechaIngresoTaller?.toISOString(),
     fechaEgresoTaller: presupuesto.fechaEgresoTaller?.toISOString(),
@@ -90,6 +100,78 @@ export async function getTalleres() {
 
   const talleres = await TallerModel.find().sort({ nombre: 1 }).lean();
   return talleres.map(serializeTaller);
+}
+
+export async function createTallerRecord(input: {
+  nombre: string;
+  tipoTrabajo?: string;
+  activo: boolean;
+}) {
+  await connectToMongo();
+
+  const existing = await TallerModel.findOne({
+    nombre: { $regex: `^${input.nombre}$`, $options: "i" },
+  }).lean();
+
+  if (existing) {
+    throw new Error("Ya existe un taller con ese nombre.");
+  }
+
+  const created = await TallerModel.create(input);
+  return serializeTaller(created.toObject());
+}
+
+export async function updateTallerRecord(
+  id: string,
+  input: {
+    nombre?: string;
+    tipoTrabajo?: string;
+    activo?: boolean;
+  },
+) {
+  await connectToMongo();
+
+  if (input.nombre) {
+    const existing = await TallerModel.findOne({
+      _id: { $ne: id },
+      nombre: { $regex: `^${input.nombre}$`, $options: "i" },
+    }).lean();
+
+    if (existing) {
+      throw new Error("Ya existe otro taller con ese nombre.");
+    }
+  }
+
+  const updated = await TallerModel.findByIdAndUpdate(
+    id,
+    {
+      $set: {
+        ...input,
+        tipoTrabajo: sanitizeOptionalString(input.tipoTrabajo),
+      },
+    },
+    { new: true },
+  ).lean();
+
+  if (!updated) {
+    return null;
+  }
+
+  return serializeTaller(updated);
+}
+
+export async function deleteTallerRecord(id: string) {
+  await connectToMongo();
+
+  const linkedPresupuesto = await PresupuestoModel.exists({ tallerId: id });
+  if (linkedPresupuesto) {
+    throw new Error(
+      "No se puede eliminar el taller porque ya tiene presupuestos asociados.",
+    );
+  }
+
+  const deleted = await TallerModel.findByIdAndDelete(id).lean();
+  return Boolean(deleted);
 }
 
 export async function getPresupuestos(filters: PresupuestoFilters = {}) {

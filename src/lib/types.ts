@@ -1,6 +1,7 @@
-import type { PRESUPUESTO_ESTADOS } from "@/lib/constants";
+import type { PRESUPUESTO_ESTADOS, PRIORIDAD_OPTIONS } from "@/lib/constants";
 
 export type PresupuestoEstado = (typeof PRESUPUESTO_ESTADOS)[number];
+export type PresupuestoPrioridad = (typeof PRIORIDAD_OPTIONS)[number];
 
 export type TallerDTO = {
   id: string;
@@ -32,7 +33,7 @@ export type PresupuestoDTO = {
   tallerId: string;
   tallerNombre: string;
   nroPresupuesto?: string;
-  prioridad?: string;
+  prioridad?: PresupuestoPrioridad;
   detalle?: string;
   fechaIngresoTaller?: string;
   fechaEgresoTaller?: string;

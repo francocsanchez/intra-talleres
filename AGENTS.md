@@ -167,6 +167,29 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - `GET /api/presupuestos`
 - `POST /api/presupuestos`
 - `PATCH /api/presupuestos/[id]`
+- `GET /api/talleres`
+- `POST /api/talleres`
+- `PATCH /api/talleres/[id]`
+- `DELETE /api/talleres/[id]`
+
+## Navegacion actual
+
+- `Dashboard`
+  - vista compacta de resumen por estado
+- `Presupuestos`
+  - carga por interno
+  - filtros
+  - tabla consolidada
+- `Configuración`
+  - CRUD de talleres
+
+## Reglas UI actuales
+
+- El hero inicial fue eliminado.
+- La prioridad del presupuesto se carga mediante select cerrado con estas opciones:
+  - `Alta`
+  - `Media`
+  - `Baja`
 
 ## Variables de entorno esperadas
 
