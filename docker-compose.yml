@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  nfc-fsanchez:
+    container_name: intra-talleres
+    image: ghcr.io/francocsanchez/intra-talleres:latest
+    restart: unless-stopped
+    ports:
+      - "32769:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      DATABASE_MONGO: ${DATABASE_MONGO}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      AUTH_ADMIN_EMAIL: ${AUTH_ADMIN_EMAIL}
+      AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD}
+      AUTH_ADMIN_NAME: ${AUTH_ADMIN_NAME}
+      MONGODB_URI: ${MONGODB_URI}
+      MONGODB_DB: ${MONGODB_DB}
+      DBHOST_NIC: ${DBHOST_NIC}
+      DBPORT_NIC: ${DBPORT_NIC}
+      DATABASE_NIC: ${DATABASE_NIC}
+      DBUSER_NIC: ${DBUSER_NIC}
+      DBPASS_NIC: ${DBPASS_NIC}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
