@@ -1,0 +1,33 @@
+name: Docker Image Check
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+      - "release/**"
+      - "feature/**"
+  pull_request:
+
+jobs:
+  docker-build:
+    name: Build production image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: false
+          provenance: false
+          tags: intra-talleres:ci

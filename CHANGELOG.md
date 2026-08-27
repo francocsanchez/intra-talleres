@@ -8,6 +8,7 @@
 - Se creó una pantalla dedicada de ingreso y se incorporó cierre de sesión dentro del navbar operativo.
 - Se dockerizó la aplicación con `Dockerfile` multi-stage, `EXPOSE 3012` y variables de entorno listas para configurar MongoDB, SQL Server y credenciales iniciales.
 - Se completó `.env.example` con todas las variables requeridas por la app y se reemplazaron credenciales concretas por placeholders seguros de configuración.
+- Se agregó un workflow de GitHub Actions para construir la imagen Docker en `push` y `pull_request`, validando el build de producción antes de promoción a entornos posteriores.
 
 ## 2026-08-26
 

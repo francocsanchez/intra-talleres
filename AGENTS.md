@@ -218,6 +218,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - El usuario administrador inicial se crea automáticamente si no existe.
 - El acceso y el consumo de APIs del sistema requieren sesión válida.
 - La aplicación está dockerizada para correr en el puerto `3012`.
+- El repositorio debe validar por CI la construcción de la imagen Docker antes de promoción a producción.
 - El `Dockerfile` define defaults configurables para:
   - `PORT`
   - `HOSTNAME`
@@ -255,3 +256,8 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 - `.env.example` debe mantenerse completo y actualizado con todas las variables necesarias para ejecutar la app.
 - `.env.example` no debe dejar credenciales reales de infraestructura: usar placeholders o defaults de desarrollo.
+
+## CI
+
+- Existe un workflow en GitHub Actions para construir la imagen Docker del proyecto.
+- El objetivo del workflow es detectar roturas de build de producción antes de llegar a despliegue.
