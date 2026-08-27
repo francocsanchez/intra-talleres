@@ -5,9 +5,6 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    depends_on:
-      mongo:
-        condition: service_healthy
     ports:
       - "${PORT:-3012}:3012"
     environment:
@@ -20,7 +17,7 @@ services:
       AUTH_ADMIN_EMAIL: ${AUTH_ADMIN_EMAIL:-admin@nipponcarsrl.com.ar}
       AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD:-Nippon111+}
       AUTH_ADMIN_NAME: ${AUTH_ADMIN_NAME:-Administrador}
-      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/intra_talleres}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://host.docker.internal:27017/intra_talleres}
       MONGODB_DB: ${MONGODB_DB:-intra_talleres}
       DBHOST_NIC: ${DBHOST_NIC:-host.docker.internal}
       DBPORT_NIC: ${DBPORT_NIC:-1433}
@@ -31,26 +28,6 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - intra-talleres-net
-
-  mongo:
-    container_name: intra-talleres-mongo
-    image: mongo:8.0
-    restart: unless-stopped
-    ports:
-      - "${MONGO_PORT:-27017}:27017"
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "mongodb://127.0.0.1:27017/admin", "--eval", "db.runCommand({ ping: 1 }).ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
-    networks:
-      - intra-talleres-net
-
-volumes:
-  mongo_data:
 
 networks:
   intra-talleres-net:

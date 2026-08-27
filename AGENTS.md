@@ -220,12 +220,11 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - Si el usuario administrador ya existe, su nombre, rol y `AUTH_ADMIN_PASSWORD` deben sincronizarse desde variables de entorno al iniciar la app.
 - El acceso y el consumo de APIs del sistema requieren sesión válida.
 - La aplicación está dockerizada para correr en el puerto `3012`.
-- Existe un `docker-compose.yml` listo para Portainer que levanta la app junto a MongoDB en la misma stack.
+- Existe un `docker-compose.yml` listo para Portainer que levanta únicamente la app y reutiliza el MongoDB externo ya existente en el servidor.
 - El repositorio debe validar por CI la construcción de la imagen Docker antes de promoción a producción.
 - El `Dockerfile` define defaults configurables para:
   - `PORT`
   - `HOSTNAME`
-  - `MONGO_PORT`
   - `BETTER_AUTH_URL`
   - `BETTER_AUTH_SECRET`
   - `AUTH_TRUSTED_ORIGINS`
@@ -244,7 +243,6 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 - `PORT`
 - `HOSTNAME`
-- `MONGO_PORT`
 - `BETTER_AUTH_URL`
 - `BETTER_AUTH_SECRET`
 - `AUTH_TRUSTED_ORIGINS`
@@ -275,8 +273,5 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 - El stack Docker para Portainer debe contemplar:
   - servicio `app`
-  - servicio `mongo`
-  - volumen persistente para MongoDB
-  - `healthcheck` de Mongo
   - publicación del puerto `3012`
-  - `extra_hosts` para resolver `host.docker.internal` y permitir acceso al SQL Server externo desde el contenedor
+  - `extra_hosts` para resolver `host.docker.internal` y permitir acceso al MongoDB y SQL Server externos desde el contenedor
