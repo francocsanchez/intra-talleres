@@ -11,6 +11,8 @@
 - Se agregó un workflow de GitHub Actions para construir la imagen Docker en `push` y `pull_request`, validando el build de producción antes de promoción a entornos posteriores.
 - Se corrigió la sincronización del usuario admin para que, si ya existe, también actualice nombre, rol y `AUTH_ADMIN_PASSWORD` desde el entorno al iniciar.
 - Se aclaró en `.env.example` que `BETTER_AUTH_SECRET` firma sesiones y no funciona como contraseña de acceso.
+- Se corrigió Better Auth para aceptar `localhost:3000` y otros orígenes configurables mediante `AUTH_TRUSTED_ORIGINS`, evitando el error `Invalid origin` en desarrollo.
+- Se eliminó la dependencia de conexión inmediata a Mongo al construir Better Auth, evitando fallos de `docker build` y CI cuando la base no existe durante `next build`.
 
 ## 2026-08-26
 

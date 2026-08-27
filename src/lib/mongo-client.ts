@@ -1,6 +1,7 @@
 import { MongoClient } from "mongodb";
 
 declare global {
+  var rawMongoClient: MongoClient | undefined;
   var rawMongoClientPromise: Promise<MongoClient> | undefined;
 }
 
@@ -10,8 +11,17 @@ const mongoUri =
 const mongoDbName = process.env.MONGODB_DB || "intra_talleres";
 
 function createClientPromise() {
-  const client = new MongoClient(mongoUri);
+  const client = global.rawMongoClient ?? new MongoClient(mongoUri);
+  if (!global.rawMongoClient) {
+    global.rawMongoClient = client;
+  }
   return client.connect();
+}
+
+const rawMongoClient = global.rawMongoClient ?? new MongoClient(mongoUri);
+
+if (!global.rawMongoClient) {
+  global.rawMongoClient = rawMongoClient;
 }
 
 const rawMongoClientPromise =
@@ -28,4 +38,8 @@ export async function ensureRawMongoConnection() {
 export async function getRawMongoDb() {
   const client = await ensureRawMongoConnection();
   return client.db(mongoDbName);
+}
+
+export function getRawMongoDbSync() {
+  return rawMongoClient.db(mongoDbName);
 }

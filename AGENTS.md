@@ -127,6 +127,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - Existe bootstrap automático del usuario administrador inicial:
   - `admin@nipponcarsrl.com.ar`
   - clave por default `Nippon111+`
+- Better Auth debe aceptar orígenes configurables para desarrollo y despliegue mediante `AUTH_TRUSTED_ORIGINS`.
 
 ## Modelo funcional actual
 
@@ -225,6 +226,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
   - `HOSTNAME`
   - `BETTER_AUTH_URL`
   - `BETTER_AUTH_SECRET`
+  - `AUTH_TRUSTED_ORIGINS`
   - `AUTH_ADMIN_EMAIL`
   - `AUTH_ADMIN_PASSWORD`
   - `AUTH_ADMIN_NAME`
@@ -242,6 +244,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - `HOSTNAME`
 - `BETTER_AUTH_URL`
 - `BETTER_AUTH_SECRET`
+- `AUTH_TRUSTED_ORIGINS`
 - `AUTH_ADMIN_EMAIL`
 - `AUTH_ADMIN_PASSWORD`
 - `AUTH_ADMIN_NAME`
@@ -258,6 +261,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - `.env.example` debe mantenerse completo y actualizado con todas las variables necesarias para ejecutar la app.
 - `.env.example` no debe dejar credenciales reales de infraestructura: usar placeholders o defaults de desarrollo.
 - `.env.example` debe dejar claro que `BETTER_AUTH_SECRET` no es la contraseña del usuario administrador.
+- `.env.example` debe incluir también los orígenes confiables de Better Auth para evitar errores de `Invalid origin` en desarrollo.
 
 ## CI
 
