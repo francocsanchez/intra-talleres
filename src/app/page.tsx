@@ -1,13 +1,10 @@
 import { DashboardShell } from "@/components/dashboard-shell";
 import { getServerSession } from "@/lib/auth-session";
-import { ensureAuthAdmin } from "@/lib/bootstrap-auth";
 import { getPresupuestos, getTalleres } from "@/lib/data";
 import type { PresupuestoDTO, TallerDTO } from "@/lib/types";
 import { redirect } from "next/navigation";
 
 export default async function Home() {
-  await ensureAuthAdmin();
-
   const session = await getServerSession();
 
   if (!session) {

@@ -1,15 +1,12 @@
 import { redirect } from "next/navigation";
 
 import { SignInForm } from "@/components/sign-in-form";
-import { ensureAuthAdmin } from "@/lib/bootstrap-auth";
 import { getServerSession } from "@/lib/auth-session";
 
 const adminEmail =
   process.env.AUTH_ADMIN_EMAIL || "admin@nipponcarsrl.com.ar";
 
 export default async function SignInPage() {
-  await ensureAuthAdmin();
-
   const session = await getServerSession();
 
   if (session) {
