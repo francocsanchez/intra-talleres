@@ -216,6 +216,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 - El alta pública de usuarios está deshabilitada.
 - El usuario administrador inicial se crea automáticamente si no existe.
+- Si el usuario administrador ya existe, su nombre, rol y `AUTH_ADMIN_PASSWORD` deben sincronizarse desde variables de entorno al iniciar la app.
 - El acceso y el consumo de APIs del sistema requieren sesión válida.
 - La aplicación está dockerizada para correr en el puerto `3012`.
 - El repositorio debe validar por CI la construcción de la imagen Docker antes de promoción a producción.
@@ -256,6 +257,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 - `.env.example` debe mantenerse completo y actualizado con todas las variables necesarias para ejecutar la app.
 - `.env.example` no debe dejar credenciales reales de infraestructura: usar placeholders o defaults de desarrollo.
+- `.env.example` debe dejar claro que `BETTER_AUTH_SECRET` no es la contraseña del usuario administrador.
 
 ## CI
 

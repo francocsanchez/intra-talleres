@@ -9,6 +9,8 @@
 - Se dockerizó la aplicación con `Dockerfile` multi-stage, `EXPOSE 3012` y variables de entorno listas para configurar MongoDB, SQL Server y credenciales iniciales.
 - Se completó `.env.example` con todas las variables requeridas por la app y se reemplazaron credenciales concretas por placeholders seguros de configuración.
 - Se agregó un workflow de GitHub Actions para construir la imagen Docker en `push` y `pull_request`, validando el build de producción antes de promoción a entornos posteriores.
+- Se corrigió la sincronización del usuario admin para que, si ya existe, también actualice nombre, rol y `AUTH_ADMIN_PASSWORD` desde el entorno al iniciar.
+- Se aclaró en `.env.example` que `BETTER_AUTH_SECRET` firma sesiones y no funciona como contraseña de acceso.
 
 ## 2026-08-26
 
