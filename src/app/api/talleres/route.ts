@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import { getRequestSession, unauthorizedResponse } from "@/lib/auth-session";
 import { createTallerRecord, getTalleres } from "@/lib/data";
 import { createTallerSchema } from "@/lib/validation";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const session = await getRequestSession(request.headers);
+
+    if (!session) {
+      return unauthorizedResponse();
+    }
+
     const talleres = await getTalleres();
     return NextResponse.json({ talleres });
   } catch {
@@ -18,6 +25,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getRequestSession(request.headers);
+
+    if (!session) {
+      return unauthorizedResponse();
+    }
+
     const payload = createTallerSchema.parse(await request.json());
     const taller = await createTallerRecord(payload);
     return NextResponse.json({ taller }, { status: 201 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import { getRequestSession, unauthorizedResponse } from "@/lib/auth-session";
 import {
   createPresupuestoRecord,
   getPresupuestos,
@@ -14,6 +15,12 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getRequestSession(request.headers);
+
+    if (!session) {
+      return unauthorizedResponse();
+    }
+
     const filters = presupuestoFiltersSchema.parse({
       estado: request.nextUrl.searchParams.get("estado") || undefined,
       tallerId: request.nextUrl.searchParams.get("tallerId") || undefined,
@@ -34,6 +41,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getRequestSession(request.headers);
+
+    if (!session) {
+      return unauthorizedResponse();
+    }
+
     const payload = normalizeCreatePresupuestoPayload(await request.json());
     const [unidad, talleres] = await Promise.all([
       fetchUnidadByInterno(payload.interno),

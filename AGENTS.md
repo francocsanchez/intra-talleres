@@ -121,14 +121,12 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - El MVP implementado unifica alta y seguimiento de presupuestos en una sola pantalla principal.
 - La persistencia del sistema se guarda en MongoDB local usando la base `intra_talleres`.
 - La consulta de unidades por `interno` se realiza contra SQL Server en modo solo lectura.
-- Los talleres iniciales se siembran automaticamente con este catalogo:
-  - `EMT`
-  - `PROBALANCE`
-  - `ALTAMIRANO`
-  - `FULLSERVICE`
-  - `TODO AUTO`
-  - `FEPOLARIZADOS`
-  - `Gomeria F1`
+- El catálogo de talleres no tiene seed automático y queda bajo carga manual del usuario.
+- La aplicación exige autenticación antes de permitir acceso a dashboard, presupuestos, configuración o APIs internas.
+- La autenticación usa `Better Auth` con email y contraseña, persistiendo sesiones y usuarios en la misma base MongoDB del sistema.
+- Existe bootstrap automático del usuario administrador inicial:
+  - `admin@nipponcarsrl.com.ar`
+  - clave por default `Nippon111+`
 
 ## Modelo funcional actual
 
@@ -163,6 +161,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 ## Endpoints actuales
 
+- `GET/POST /api/auth/[...all]`
 - `GET /api/unidades?interno=...`
 - `GET /api/presupuestos`
 - `POST /api/presupuestos`
@@ -174,6 +173,8 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 ## Navegacion actual
 
+- `Sign-in`
+  - acceso autenticado a la operación
 - `Dashboard`
   - vista compacta de resumen por estado
 - `Presupuestos`
@@ -193,15 +194,55 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - La generación de presupuestos se realiza desde un `dialog` de alta.
 - La fecha de egreso puede quedar vacía al crear y luego completarse desde la tabla de seguimiento.
 - Observaciones y detalle se visualizan completos mediante un `dialog` disparado por `Ver más`.
+- La columna `Observaciones` en la tabla no muestra texto resumido: solo expone el botón `Ver más`.
+- El cambio de estado y la carga de fecha de egreso se realizan desde un único `dialog` de gestión por presupuesto.
+
+## Dashboard actual
+
+- El dashboard utiliza `ECharts` para las visualizaciones.
+- Indicadores implementados:
+  - cantidad de presupuestos por mes con barras apiladas por estado
+  - gasto por mes de presupuestos aprobados
+  - cantidad de presupuestos por marca
+  - cantidad de presupuestos por taller
 
 ## Reglas de catalogo de talleres
 
-- El seed de talleres debe comportarse de manera case-insensitive para evitar duplicados por diferencias entre mayúsculas y minúsculas.
 - La creación y edición de talleres debe rechazar nombres repetidos aunque cambie solo el casing.
-- El seed inicial de talleres debe ejecutarse solo cuando la colección de talleres está vacía, para no recrear talleres que fueron renombrados o eliminados desde la interfaz.
+- No debe existir siembra automática de talleres por defecto.
+- El catálogo de talleres debe quedar completamente bajo control manual del usuario.
+
+## Autenticacion y despliegue
+
+- El alta pública de usuarios está deshabilitada.
+- El usuario administrador inicial se crea automáticamente si no existe.
+- El acceso y el consumo de APIs del sistema requieren sesión válida.
+- La aplicación está dockerizada para correr en el puerto `3012`.
+- El `Dockerfile` define defaults configurables para:
+  - `PORT`
+  - `HOSTNAME`
+  - `BETTER_AUTH_URL`
+  - `BETTER_AUTH_SECRET`
+  - `AUTH_ADMIN_EMAIL`
+  - `AUTH_ADMIN_PASSWORD`
+  - `AUTH_ADMIN_NAME`
+  - `MONGODB_URI`
+  - `MONGODB_DB`
+  - `DBHOST_NIC`
+  - `DBPORT_NIC`
+  - `DATABASE_NIC`
+  - `DBUSER_NIC`
+  - `DBPASS_NIC`
 
 ## Variables de entorno esperadas
 
+- `PORT`
+- `HOSTNAME`
+- `BETTER_AUTH_URL`
+- `BETTER_AUTH_SECRET`
+- `AUTH_ADMIN_EMAIL`
+- `AUTH_ADMIN_PASSWORD`
+- `AUTH_ADMIN_NAME`
 - `MONGODB_URI`
 - `MONGODB_DB`
 - `DBHOST_NIC`
@@ -209,3 +250,8 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - `DATABASE_NIC`
 - `DBUSER_NIC`
 - `DBPASS_NIC`
+
+## Archivo de ejemplo
+
+- `.env.example` debe mantenerse completo y actualizado con todas las variables necesarias para ejecutar la app.
+- `.env.example` no debe dejar credenciales reales de infraestructura: usar placeholders o defaults de desarrollo.

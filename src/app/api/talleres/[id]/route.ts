@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import { getRequestSession, unauthorizedResponse } from "@/lib/auth-session";
 import { deleteTallerRecord, updateTallerRecord } from "@/lib/data";
 import { updateTallerSchema } from "@/lib/validation";
 
@@ -9,6 +10,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await getRequestSession(request.headers);
+
+    if (!session) {
+      return unauthorizedResponse();
+    }
+
     const { id } = await params;
     const payload = updateTallerSchema.parse(await request.json());
     const taller = await updateTallerRecord(id, payload);
@@ -46,6 +53,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await getRequestSession(_request.headers);
+
+    if (!session) {
+      return unauthorizedResponse();
+    }
+
     const { id } = await params;
     const deleted = await deleteTallerRecord(id);
 

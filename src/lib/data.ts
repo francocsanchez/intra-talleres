@@ -1,4 +1,4 @@
-import { PRIORIDAD_OPTIONS, TALLERES_INICIALES } from "@/lib/constants";
+import { PRIORIDAD_OPTIONS } from "@/lib/constants";
 import { connectToMongo } from "@/lib/mongodb";
 import { PresupuestoModel } from "@/lib/models/presupuesto";
 import { TallerModel } from "@/lib/models/taller";
@@ -84,23 +84,8 @@ function serializePresupuesto(presupuesto: {
   } satisfies PresupuestoDTO;
 }
 
-export async function ensureInitialCatalogs() {
-  await connectToMongo();
-
-  const totalTalleres = await TallerModel.countDocuments();
-
-  if (totalTalleres === 0) {
-    await TallerModel.insertMany(
-      TALLERES_INICIALES.map((rawName) => ({
-        nombre: normalizeTallerName(rawName),
-        activo: true,
-      })),
-    );
-  }
-}
-
 export async function getTalleres() {
-  await ensureInitialCatalogs();
+  await connectToMongo();
 
   const talleres = await TallerModel.find().sort({ nombre: 1 }).lean();
   return talleres.map(serializeTaller);

@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import { getRequestSession, unauthorizedResponse } from "@/lib/auth-session";
 import { fetchUnidadByInterno } from "@/lib/sqlserver";
 import { lookupUnidadSchema } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getRequestSession(request.headers);
+
+    if (!session) {
+      return unauthorizedResponse();
+    }
+
     const { interno } = lookupUnidadSchema.parse({
       interno: request.nextUrl.searchParams.get("interno") || "",
     });

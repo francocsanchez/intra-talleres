@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import { getRequestSession, unauthorizedResponse } from "@/lib/auth-session";
 import { updatePresupuestoRecord } from "@/lib/data";
 import { updatePresupuestoSchema } from "@/lib/validation";
 
@@ -9,6 +10,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await getRequestSession(request.headers);
+
+    if (!session) {
+      return unauthorizedResponse();
+    }
+
     const { id } = await params;
     const payload = updatePresupuestoSchema.parse(await request.json());
 
