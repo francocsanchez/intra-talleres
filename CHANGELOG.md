@@ -13,6 +13,8 @@
 - Se aclaró en `.env.example` que `BETTER_AUTH_SECRET` firma sesiones y no funciona como contraseña de acceso.
 - Se corrigió Better Auth para aceptar `localhost:3000` y otros orígenes configurables mediante `AUTH_TRUSTED_ORIGINS`, evitando el error `Invalid origin` en desarrollo.
 - Se eliminó la dependencia de conexión inmediata a Mongo al construir Better Auth, evitando fallos de `docker build` y CI cuando la base no existe durante `next build`.
+- Se agregó `docker-compose.yml` listo para Portainer, levantando la app y MongoDB con volumen persistente, healthcheck y variables de entorno configurables.
+- Se agregó `MONGO_PORT` al `.env.example` para controlar la publicación del contenedor de Mongo en stacks Docker.
 
 ## 2026-08-26
 

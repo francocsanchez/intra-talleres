@@ -1,33 +1,57 @@
-version: "3.9"
-
 services:
-  nfc-fsanchez:
-    container_name: intra-talleres
-    image: ghcr.io/francocsanchez/intra-talleres:latest
+  app:
+    container_name: intra-talleres-app
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
     ports:
-      - "32769:3000"
+      - "${PORT:-3012}:3012"
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 3012
       HOSTNAME: 0.0.0.0
-      DATABASE_MONGO: ${DATABASE_MONGO}
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
-      AUTH_ADMIN_EMAIL: ${AUTH_ADMIN_EMAIL}
-      AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD}
-      AUTH_ADMIN_NAME: ${AUTH_ADMIN_NAME}
-      MONGODB_URI: ${MONGODB_URI}
-      MONGODB_DB: ${MONGODB_DB}
-      DBHOST_NIC: ${DBHOST_NIC}
-      DBPORT_NIC: ${DBPORT_NIC}
-      DATABASE_NIC: ${DATABASE_NIC}
-      DBUSER_NIC: ${DBUSER_NIC}
-      DBPASS_NIC: ${DBPASS_NIC}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3012}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-change-this-better-auth-secret}
+      AUTH_TRUSTED_ORIGINS: ${AUTH_TRUSTED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:3012,http://127.0.0.1:3012}
+      AUTH_ADMIN_EMAIL: ${AUTH_ADMIN_EMAIL:-admin@nipponcarsrl.com.ar}
+      AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD:-Nippon111+}
+      AUTH_ADMIN_NAME: ${AUTH_ADMIN_NAME:-Administrador}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/intra_talleres}
+      MONGODB_DB: ${MONGODB_DB:-intra_talleres}
+      DBHOST_NIC: ${DBHOST_NIC:-host.docker.internal}
+      DBPORT_NIC: ${DBPORT_NIC:-1433}
+      DATABASE_NIC: ${DATABASE_NIC:-siac}
+      DBUSER_NIC: ${DBUSER_NIC:-sa}
+      DBPASS_NIC: ${DBPASS_NIC:-change-this-sql-password}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - intra-talleres-net
+
+  mongo:
+    container_name: intra-talleres-mongo
+    image: mongo:8.0
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD", "mongosh", "--quiet", "mongodb://127.0.0.1:27017/admin", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
       start_period: 20s
+    networks:
+      - intra-talleres-net
+
+volumes:
+  mongo_data:
+
+networks:
+  intra-talleres-net:
+    driver: bridge
