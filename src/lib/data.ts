@@ -256,3 +256,35 @@ export async function updatePresupuestoEstado(id: string, estado: PresupuestoDTO
 
   return serializePresupuesto(presupuesto);
 }
+
+export async function updatePresupuestoRecord(
+  id: string,
+  input: {
+    estado?: PresupuestoDTO["estado"];
+    fechaEgresoTaller?: string;
+  },
+) {
+  await connectToMongo();
+
+  const payload: Record<string, unknown> = {};
+
+  if (input.estado !== undefined) {
+    payload.estado = input.estado;
+  }
+
+  if (input.fechaEgresoTaller !== undefined) {
+    payload.fechaEgresoTaller = input.fechaEgresoTaller || null;
+  }
+
+  const presupuesto = await PresupuestoModel.findByIdAndUpdate(
+    id,
+    { $set: payload },
+    { new: true },
+  ).lean();
+
+  if (!presupuesto) {
+    return null;
+  }
+
+  return serializePresupuesto(presupuesto);
+}

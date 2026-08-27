@@ -14,3 +14,6 @@
 - Se normalizó la creación y edición de talleres para validar duplicados en forma case-insensitive y se limpió el duplicado existente de `Gomeria F1`.
 - Se corrigió un segundo bug en el que renombrar o eliminar un taller base hacía que el seed lo recreara automáticamente al volver a listar.
 - El seed de talleres ahora solo corre cuando la colección está vacía por completo, respetando cambios manuales posteriores del usuario.
+- La creación de presupuestos pasó a realizarse mediante un `dialog` en lugar de una card fija lateral.
+- Se habilitó la carga posterior de `fecha de egreso` directamente desde la tabla de presupuestos.
+- Observaciones y detalle ahora se consultan completos mediante un `dialog` abierto desde el botón `Ver más`.

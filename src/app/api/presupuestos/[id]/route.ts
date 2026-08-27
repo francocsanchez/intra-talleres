@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import { updatePresupuestoEstado } from "@/lib/data";
-import { updatePresupuestoEstadoSchema } from "@/lib/validation";
+import { updatePresupuestoRecord } from "@/lib/data";
+import { updatePresupuestoSchema } from "@/lib/validation";
 
 export async function PATCH(
   request: NextRequest,
@@ -10,9 +10,9 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const { estado } = updatePresupuestoEstadoSchema.parse(await request.json());
+    const payload = updatePresupuestoSchema.parse(await request.json());
 
-    const presupuesto = await updatePresupuestoEstado(id, estado);
+    const presupuesto = await updatePresupuestoRecord(id, payload);
 
     if (!presupuesto) {
       return NextResponse.json(
@@ -25,13 +25,13 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { message: error.issues[0]?.message || "Estado inválido." },
+        { message: error.issues[0]?.message || "Actualización inválida." },
         { status: 400 },
       );
     }
 
     return NextResponse.json(
-      { message: "No pudimos actualizar el estado." },
+      { message: "No pudimos actualizar el presupuesto." },
       { status: 500 },
     );
   }

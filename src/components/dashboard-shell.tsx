@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import {
   BarChart3,
   ClipboardList,
+  FileText,
   LoaderCircle,
   Pencil,
   Plus,
@@ -24,6 +25,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -166,6 +175,9 @@ export function DashboardShell({
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [feedback, setFeedback] = useState<string | null>(initialError || null);
   const [lookupMessage, setLookupMessage] = useState<string | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [detailsPresupuesto, setDetailsPresupuesto] = useState<PresupuestoDTO | null>(null);
+  const [egresoDrafts, setEgresoDrafts] = useState<Record<string, string>>({});
   const [tallerForm, setTallerForm] = useState<TallerFormState>(initialTallerFormState);
   const [editingTallerId, setEditingTallerId] = useState<string | null>(null);
   const [isSubmitting, startSubmitTransition] = useTransition();
@@ -257,6 +269,7 @@ export function DashboardShell({
     setForm(initialFormState);
     setVehicle(null);
     setLookupMessage(null);
+    setIsCreateDialogOpen(false);
   }
 
   function resetTallerForm() {
@@ -342,6 +355,51 @@ export function DashboardShell({
           error instanceof Error
             ? error.message
             : "No pudimos actualizar el estado del presupuesto.",
+        );
+      }
+    });
+  }
+
+  function updateEgresoDraft(id: string, value: string) {
+    setEgresoDrafts((current) => ({ ...current, [id]: value }));
+  }
+
+  function getEgresoDraft(presupuesto: PresupuestoDTO) {
+    return egresoDrafts[presupuesto.id] ?? presupuesto.fechaEgresoTaller?.slice(0, 10) ?? "";
+  }
+
+  function saveFechaEgreso(id: string) {
+    startRefreshTransition(async () => {
+      try {
+        const response = await fetch(`/api/presupuestos/${id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fechaEgresoTaller: egresoDrafts[id] || "",
+          }),
+        });
+        const data = await parseJsonResponse<{ presupuesto: PresupuestoDTO }>(response);
+        setPresupuestos((current) =>
+          current.map((item) => (item.id === id ? data.presupuesto : item)),
+        );
+        setEgresoDrafts((current) => ({
+          ...current,
+          [id]: data.presupuesto.fechaEgresoTaller
+            ? data.presupuesto.fechaEgresoTaller.slice(0, 10)
+            : "",
+        }));
+        setFeedback(
+          data.presupuesto.fechaEgresoTaller
+            ? "Fecha de egreso guardada."
+            : "Fecha de egreso eliminada.",
+        );
+      } catch (error) {
+        setFeedback(
+          error instanceof Error
+            ? error.message
+            : "No pudimos actualizar la fecha de egreso.",
         );
       }
     });
@@ -535,272 +593,285 @@ export function DashboardShell({
         ) : null}
 
         {activeView === "presupuestos" ? (
-          <section className="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
+          <section className="grid gap-4">
             <Card className="border-border/70 shadow-none">
               <CardHeader className="border-b border-border/70 pb-3">
-                <CardTitle className="font-heading text-2xl tracking-[-0.04em]">
-                  Carga de presupuesto
-                </CardTitle>
-                <CardDescription>
-                  Buscá la unidad por interno y registrá el presupuesto con estado inicial
-                  pendiente.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="interno">Interno</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="interno"
-                      value={form.interno}
-                      onChange={(event) => updateForm("interno", event.target.value)}
-                      placeholder="Ej. 10342"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="shrink-0"
-                      onClick={lookupInterno}
-                      disabled={isLookingUp}
-                    >
-                      {isLookingUp ? (
-                        <LoaderCircle className="size-4 animate-spin" />
-                      ) : (
-                        <Search className="size-4" />
-                      )}
-                      Buscar
-                    </Button>
-                  </div>
-                  {lookupMessage ? (
-                    <p className="text-xs text-muted-foreground">{lookupMessage}</p>
-                  ) : null}
-                </div>
-
-                <div className="rounded-lg border border-border/70 bg-secondary/40 p-3">
-                  <div className="grid gap-1">
-                    <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-                      Unidad vinculada
-                    </p>
-                    <p className="font-medium">
-                      {vehicle
-                        ? `${vehicle.dominio} · ${vehicle.marca} ${vehicle.modelo}`
-                        : "Buscá un interno para autocompletar dominio, marca y modelo."}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {vehicle
-                        ? `KM de base: ${vehicle.km} · Chasis: ${vehicle.chasis || "s/d"}`
-                        : "Sin datos aún."}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="grid gap-2 sm:col-span-2">
-                    <Label htmlFor="taller">Taller</Label>
-                    <Select
-                      value={form.tallerId}
-                      onValueChange={(value) => updateForm("tallerId", value ?? "")}
-                    >
-                      <SelectTrigger id="taller" className="w-full">
-                        <SelectValue placeholder="Seleccionar taller" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {talleres.map((taller) => (
-                          <SelectItem key={taller.id} value={taller.id}>
-                            {taller.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Field label="KM informado" htmlFor="km">
-                    <Input
-                      id="km"
-                      value={form.km}
-                      onChange={(event) => updateForm("km", event.target.value)}
-                      type="number"
-                      min="0"
-                    />
-                  </Field>
-                  <Field label="Costo ARS" htmlFor="costo">
-                    <Input
-                      id="costo"
-                      value={form.costo}
-                      onChange={(event) => updateForm("costo", event.target.value)}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                    />
-                  </Field>
-                  <Field label="Nro presupuesto" htmlFor="nroPresupuesto">
-                    <Input
-                      id="nroPresupuesto"
-                      value={form.nroPresupuesto}
-                      onChange={(event) => updateForm("nroPresupuesto", event.target.value)}
-                    />
-                  </Field>
-                  <Field label="Prioridad" htmlFor="prioridad">
-                    <Select
-                      value={form.prioridad || "none"}
-                      onValueChange={(value) =>
-                        updateForm("prioridad", value === "none" ? "" : (value ?? ""))
-                      }
-                    >
-                      <SelectTrigger id="prioridad" className="w-full">
-                        <SelectValue placeholder="Seleccionar prioridad" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin definir</SelectItem>
-                        {PRIORIDAD_OPTIONS.map((priority) => (
-                          <SelectItem key={priority} value={priority}>
-                            {priority}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Ingreso a taller" htmlFor="fechaIngresoTaller">
-                    <Input
-                      id="fechaIngresoTaller"
-                      value={form.fechaIngresoTaller}
-                      onChange={(event) =>
-                        updateForm("fechaIngresoTaller", event.target.value)
-                      }
-                      type="date"
-                    />
-                  </Field>
-                  <Field label="Egreso de taller" htmlFor="fechaEgresoTaller">
-                    <Input
-                      id="fechaEgresoTaller"
-                      value={form.fechaEgresoTaller}
-                      onChange={(event) =>
-                        updateForm("fechaEgresoTaller", event.target.value)
-                      }
-                      type="date"
-                    />
-                  </Field>
-                </div>
-
-                <Field label="Detalle" htmlFor="detalle">
-                  <Textarea
-                    id="detalle"
-                    value={form.detalle}
-                    onChange={(event) => updateForm("detalle", event.target.value)}
-                    rows={3}
-                    placeholder="Trabajo presupuestado o reparación a considerar"
-                  />
-                </Field>
-
-                <Field label="Observaciones" htmlFor="observaciones">
-                  <Textarea
-                    id="observaciones"
-                    value={form.observaciones}
-                    onChange={(event) => updateForm("observaciones", event.target.value)}
-                    rows={4}
-                    placeholder="Notas internas, valor de toma o comentarios del caso"
-                  />
-                </Field>
-
-                <div className="rounded-lg border border-border/70 bg-background p-3">
-                  <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-                    Vista previa de costo
-                  </p>
-                  <div className="mt-2 flex items-end justify-between gap-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Neto</p>
-                      <p className="text-lg font-semibold">
-                        {form.costo ? formatCurrency(Number(form.costo)) : "$ 0,00"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Con IVA</p>
-                      <p className="font-heading text-2xl tracking-[-0.04em]">
-                        {costoPreview ? formatCurrency(costoPreview) : "$ 0,00"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    className="flex-1"
-                    onClick={createPresupuesto}
-                    disabled={isSubmitting || !vehicle}
-                  >
-                    {isSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
-                    Guardar presupuesto
-                  </Button>
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    Limpiar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/70 shadow-none">
-              <CardHeader className="border-b border-border/70 pb-3">
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                   <div>
                     <CardTitle className="font-heading text-2xl tracking-[-0.04em]">
                       Seguimiento de presupuestos
                     </CardTitle>
                     <CardDescription>
-                      Filtros compactos para reemplazar las hojas separadas por taller.
+                      Cargá nuevos presupuestos desde un modal y completá el egreso cuando la
+                      unidad salga de taller.
                     </CardDescription>
                   </div>
-                  <div className="grid gap-2 md:grid-cols-4">
-                    <Input
-                      value={filters.interno}
-                      onChange={(event) =>
-                        setFilters((current) => ({ ...current, interno: event.target.value }))
-                      }
-                      placeholder="Filtrar por interno"
-                    />
-                    <Input
-                      value={filters.dominio}
-                      onChange={(event) =>
-                        setFilters((current) => ({ ...current, dominio: event.target.value }))
-                      }
-                      placeholder="Filtrar por dominio"
-                    />
-                    <Select
-                      value={filters.tallerId}
-                      onValueChange={(value) =>
-                        setFilters((current) => ({ ...current, tallerId: value ?? "all" }))
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Todos los talleres" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos los talleres</SelectItem>
-                        {talleres.map((taller) => (
-                          <SelectItem key={taller.id} value={taller.id}>
-                            {taller.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={filters.estado}
-                      onValueChange={(value) =>
-                        setFilters((current) => ({ ...current, estado: value ?? "all" }))
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Todos los estados" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos los estados</SelectItem>
-                        {PRESUPUESTO_ESTADOS.map((estado) => (
-                          <SelectItem key={estado} value={estado}>
-                            {estado}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="flex flex-col gap-2 xl:items-end">
+                    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                      <DialogTrigger
+                        render={
+                          <Button type="button" className="w-full xl:w-auto" />
+                        }
+                      >
+                          <Plus className="size-4" />
+                          Nuevo presupuesto
+                      </DialogTrigger>
+                      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+                        <DialogHeader>
+                          <DialogTitle className="font-heading text-2xl tracking-[-0.04em]">
+                            Generar presupuesto
+                          </DialogTitle>
+                          <DialogDescription>
+                            Registrá la unidad, el taller y el costo inicial. La fecha de
+                            egreso puede cargarse después desde la tabla.
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="interno">Interno</Label>
+                            <div className="flex gap-2">
+                              <Input
+                                id="interno"
+                                value={form.interno}
+                                onChange={(event) => updateForm("interno", event.target.value)}
+                                placeholder="Ej. 10342"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="shrink-0"
+                                onClick={lookupInterno}
+                                disabled={isLookingUp}
+                              >
+                                {isLookingUp ? (
+                                  <LoaderCircle className="size-4 animate-spin" />
+                                ) : (
+                                  <Search className="size-4" />
+                                )}
+                                Buscar
+                              </Button>
+                            </div>
+                            {lookupMessage ? (
+                              <p className="text-xs text-muted-foreground">{lookupMessage}</p>
+                            ) : null}
+                          </div>
+
+                          <div className="rounded-lg border border-border/70 bg-secondary/40 p-3">
+                            <div className="grid gap-1">
+                              <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                                Unidad vinculada
+                              </p>
+                              <p className="font-medium">
+                                {vehicle
+                                  ? `${vehicle.dominio} · ${vehicle.marca} ${vehicle.modelo}`
+                                  : "Buscá un interno para autocompletar dominio, marca y modelo."}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {vehicle
+                                  ? `KM de base: ${vehicle.km} · Chasis: ${vehicle.chasis || "s/d"}`
+                                  : "Sin datos aún."}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="grid gap-2 sm:col-span-2">
+                              <Label htmlFor="taller">Taller</Label>
+                              <Select
+                                value={form.tallerId}
+                                onValueChange={(value) => updateForm("tallerId", value ?? "")}
+                              >
+                                <SelectTrigger id="taller" className="w-full">
+                                  <SelectValue placeholder="Seleccionar taller" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {talleres.map((taller) => (
+                                    <SelectItem key={taller.id} value={taller.id}>
+                                      {taller.nombre}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <Field label="KM informado" htmlFor="km">
+                              <Input
+                                id="km"
+                                value={form.km}
+                                onChange={(event) => updateForm("km", event.target.value)}
+                                type="number"
+                                min="0"
+                              />
+                            </Field>
+                            <Field label="Costo ARS" htmlFor="costo">
+                              <Input
+                                id="costo"
+                                value={form.costo}
+                                onChange={(event) => updateForm("costo", event.target.value)}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                              />
+                            </Field>
+                            <Field label="Nro presupuesto" htmlFor="nroPresupuesto">
+                              <Input
+                                id="nroPresupuesto"
+                                value={form.nroPresupuesto}
+                                onChange={(event) =>
+                                  updateForm("nroPresupuesto", event.target.value)
+                                }
+                              />
+                            </Field>
+                            <Field label="Prioridad" htmlFor="prioridad">
+                              <Select
+                                value={form.prioridad || "none"}
+                                onValueChange={(value) =>
+                                  updateForm(
+                                    "prioridad",
+                                    value === "none" ? "" : (value ?? ""),
+                                  )
+                                }
+                              >
+                                <SelectTrigger id="prioridad" className="w-full">
+                                  <SelectValue placeholder="Seleccionar prioridad" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Sin definir</SelectItem>
+                                  {PRIORIDAD_OPTIONS.map((priority) => (
+                                    <SelectItem key={priority} value={priority}>
+                                      {priority}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </Field>
+                            <Field label="Ingreso a taller" htmlFor="fechaIngresoTaller">
+                              <Input
+                                id="fechaIngresoTaller"
+                                value={form.fechaIngresoTaller}
+                                onChange={(event) =>
+                                  updateForm("fechaIngresoTaller", event.target.value)
+                                }
+                                type="date"
+                              />
+                            </Field>
+                          </div>
+
+                          <Field label="Detalle" htmlFor="detalle">
+                            <Textarea
+                              id="detalle"
+                              value={form.detalle}
+                              onChange={(event) => updateForm("detalle", event.target.value)}
+                              rows={3}
+                              placeholder="Trabajo presupuestado o reparación a considerar"
+                            />
+                          </Field>
+
+                          <Field label="Observaciones" htmlFor="observaciones">
+                            <Textarea
+                              id="observaciones"
+                              value={form.observaciones}
+                              onChange={(event) =>
+                                updateForm("observaciones", event.target.value)
+                              }
+                              rows={4}
+                              placeholder="Notas internas, valor de toma o comentarios del caso"
+                            />
+                          </Field>
+
+                          <div className="rounded-lg border border-border/70 bg-background p-3">
+                            <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                              Vista previa de costo
+                            </p>
+                            <div className="mt-2 flex items-end justify-between gap-3">
+                              <div>
+                                <p className="text-xs text-muted-foreground">Neto</p>
+                                <p className="text-lg font-semibold">
+                                  {form.costo ? formatCurrency(Number(form.costo)) : "$ 0,00"}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground">Con IVA</p>
+                                <p className="font-heading text-2xl tracking-[-0.04em]">
+                                  {costoPreview ? formatCurrency(costoPreview) : "$ 0,00"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              className="flex-1"
+                              onClick={createPresupuesto}
+                              disabled={isSubmitting || !vehicle}
+                            >
+                              {isSubmitting ? (
+                                <LoaderCircle className="size-4 animate-spin" />
+                              ) : null}
+                              Guardar presupuesto
+                            </Button>
+                            <Button type="button" variant="outline" onClick={resetForm}>
+                              Limpiar
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    <div className="grid w-full gap-2 md:grid-cols-4 xl:w-[920px]">
+                      <Input
+                        value={filters.interno}
+                        onChange={(event) =>
+                          setFilters((current) => ({ ...current, interno: event.target.value }))
+                        }
+                        placeholder="Filtrar por interno"
+                      />
+                      <Input
+                        value={filters.dominio}
+                        onChange={(event) =>
+                          setFilters((current) => ({ ...current, dominio: event.target.value }))
+                        }
+                        placeholder="Filtrar por dominio"
+                      />
+                      <Select
+                        value={filters.tallerId}
+                        onValueChange={(value) =>
+                          setFilters((current) => ({ ...current, tallerId: value ?? "all" }))
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Todos los talleres" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos los talleres</SelectItem>
+                          {talleres.map((taller) => (
+                            <SelectItem key={taller.id} value={taller.id}>
+                              {taller.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={filters.estado}
+                        onValueChange={(value) =>
+                          setFilters((current) => ({ ...current, estado: value ?? "all" }))
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Todos los estados" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos los estados</SelectItem>
+                          {PRESUPUESTO_ESTADOS.map((estado) => (
+                            <SelectItem key={estado} value={estado}>
+                              {estado}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               </CardHeader>
@@ -874,10 +945,26 @@ export function DashboardShell({
                                 ? formatDate(presupuesto.fechaIngresoTaller)
                                 : "Sin fecha"}
                             </TableCell>
-                            <TableCell className="text-xs">
-                              {presupuesto.fechaEgresoTaller
-                                ? formatDate(presupuesto.fechaEgresoTaller)
-                                : "Sin fecha"}
+                            <TableCell className="min-w-[180px]">
+                              <div className="flex flex-col gap-2">
+                                <Input
+                                  value={getEgresoDraft(presupuesto)}
+                                  onChange={(event) =>
+                                    updateEgresoDraft(presupuesto.id, event.target.value)
+                                  }
+                                  type="date"
+                                  className="h-8"
+                                />
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => saveFechaEgreso(presupuesto.id)}
+                                  disabled={isRefreshing}
+                                >
+                                  Guardar egreso
+                                </Button>
+                              </div>
                             </TableCell>
                             <TableCell className="max-w-[290px]">
                               <div className="space-y-1">
@@ -896,6 +983,15 @@ export function DashboardShell({
                                     {summarizeText(presupuesto.detalle, 64)}
                                   </p>
                                 ) : null}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setDetailsPresupuesto(presupuesto)}
+                                >
+                                  <FileText className="size-4" />
+                                  Ver más
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -917,6 +1013,69 @@ export function DashboardShell({
                 </div>
               </CardContent>
             </Card>
+
+            <Dialog
+              open={Boolean(detailsPresupuesto)}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setDetailsPresupuesto(null);
+                }
+              }}
+            >
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle className="font-heading text-2xl tracking-[-0.04em]">
+                    {detailsPresupuesto
+                      ? `${detailsPresupuesto.dominio} · ${detailsPresupuesto.marca} ${detailsPresupuesto.modelo}`
+                      : "Detalle del presupuesto"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {detailsPresupuesto
+                      ? `Interno ${detailsPresupuesto.interno} · Taller ${detailsPresupuesto.tallerNombre}`
+                      : "Detalle ampliado del presupuesto."}
+                  </DialogDescription>
+                </DialogHeader>
+
+                {detailsPresupuesto ? (
+                  <div className="grid gap-4">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <DetailStat
+                        label="Estado"
+                        value={detailsPresupuesto.estado}
+                      />
+                      <DetailStat
+                        label="Prioridad"
+                        value={detailsPresupuesto.prioridad || "Sin definir"}
+                      />
+                      <DetailStat
+                        label="Egreso"
+                        value={
+                          detailsPresupuesto.fechaEgresoTaller
+                            ? formatDate(detailsPresupuesto.fechaEgresoTaller)
+                            : "Sin fecha"
+                        }
+                      />
+                    </div>
+                    <div className="rounded-lg border border-border/70 bg-secondary/25 p-4">
+                      <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                        Observaciones
+                      </p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm">
+                        {detailsPresupuesto.observaciones || "Sin observaciones"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/70 bg-background p-4">
+                      <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                        Detalle
+                      </p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm">
+                        {detailsPresupuesto.detalle || "Sin detalle"}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+              </DialogContent>
+            </Dialog>
           </section>
         ) : null}
 
@@ -1106,6 +1265,23 @@ function MetricTile({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function DetailStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border/70 bg-background px-3 py-3">
+      <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-medium">{value}</p>
+    </div>
   );
 }
 

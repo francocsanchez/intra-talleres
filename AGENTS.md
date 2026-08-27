@@ -190,6 +190,9 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
   - `Alta`
   - `Media`
   - `Baja`
+- La generación de presupuestos se realiza desde un `dialog` de alta.
+- La fecha de egreso puede quedar vacía al crear y luego completarse desde la tabla de seguimiento.
+- Observaciones y detalle se visualizan completos mediante un `dialog` disparado por `Ver más`.
 
 ## Reglas de catalogo de talleres
 

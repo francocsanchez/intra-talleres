@@ -42,6 +42,15 @@ export const updatePresupuestoEstadoSchema = z.object({
   estado: z.enum(PRESUPUESTO_ESTADOS),
 });
 
+export const updatePresupuestoSchema = z
+  .object({
+    estado: z.enum(PRESUPUESTO_ESTADOS).optional(),
+    fechaEgresoTaller: z.string().trim().optional(),
+  })
+  .refine((data) => data.estado !== undefined || data.fechaEgresoTaller !== undefined, {
+    message: "No hay cambios para guardar.",
+  });
+
 export const createTallerSchema = z.object({
   nombre: z.string().trim().min(1, "Ingresá un nombre de taller.").max(120),
   tipoTrabajo: z
