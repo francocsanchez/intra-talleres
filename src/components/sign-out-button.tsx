@@ -1,7 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 import { LoaderCircle, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -11,18 +11,8 @@ export function SignOutButton() {
   const [isPending, startTransition] = useTransition();
 
   function handleSignOut() {
-    startTransition(async () => {
-      await fetch("/api/auth/sign-out", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
-      });
-
-      router.replace("/sign-in");
-      router.refresh();
+    startTransition(() => {
+      router.push("/logout");
     });
   }
 

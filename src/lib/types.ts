@@ -3,6 +3,24 @@ import type { PRESUPUESTO_ESTADOS, PRIORIDAD_OPTIONS } from "@/lib/constants";
 export type PresupuestoEstado = (typeof PRESUPUESTO_ESTADOS)[number];
 export type PresupuestoPrioridad = (typeof PRIORIDAD_OPTIONS)[number];
 
+export type CentralSession = {
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    isActive: boolean;
+    isCentralAdmin: boolean;
+  };
+  session: {
+    id: string;
+    expiresAt: string;
+  };
+  access: Array<{
+    appKey: string;
+    role: "admin" | "user" | "viewer";
+  }>;
+};
+
 export type TallerDTO = {
   id: string;
   nombre: string;

@@ -1,15 +1,11 @@
 import { DashboardShell } from "@/components/dashboard-shell";
-import { getServerSession } from "@/lib/auth-session";
+import { getAppRole } from "@/lib/auth/central";
+import { requireServerSession } from "@/lib/auth-session";
 import { getPresupuestos, getTalleres } from "@/lib/data";
 import type { PresupuestoDTO, TallerDTO } from "@/lib/types";
-import { redirect } from "next/navigation";
 
 export default async function Home() {
-  const session = await getServerSession();
-
-  if (!session) {
-    redirect("/sign-in");
-  }
+  const session = await requireServerSession("/");
 
   let initialPresupuestos: PresupuestoDTO[] = [];
   let initialTalleres: TallerDTO[] = [];
@@ -34,6 +30,7 @@ export default async function Home() {
       initialError={initialError}
       currentUserEmail={session.user.email}
       currentUserName={session.user.name}
+      currentUserRole={getAppRole(session) ?? undefined}
     />
   );
 }

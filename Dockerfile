@@ -10,12 +10,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3012
 ENV HOSTNAME=0.0.0.0
-ENV BETTER_AUTH_URL=http://localhost:3012
-ENV BETTER_AUTH_SECRET=change-this-better-auth-secret
-ENV AUTH_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:3012,http://127.0.0.1:3012
-ENV AUTH_ADMIN_EMAIL=admin@nipponcarsrl.com.ar
-ENV AUTH_ADMIN_PASSWORD=Nippon111+
-ENV AUTH_ADMIN_NAME=Administrador
+# Auth Central: URL pública de esta app, URL del auth central y appKey registrado.
+ENV NEXT_PUBLIC_APP_URL=http://localhost:3012
+ENV CENTRAL_AUTH_URL=http://localhost:3100
+ENV CENTRAL_APP_KEY=intra-talleres
 ENV MONGODB_URI=mongodb://host.docker.internal:27017/intra_talleres
 ENV MONGODB_DB=intra_talleres
 ENV DBHOST_NIC=host.docker.internal
@@ -35,12 +33,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3012
 ENV HOSTNAME=0.0.0.0
-ENV BETTER_AUTH_URL=http://localhost:3012
-ENV BETTER_AUTH_SECRET=change-this-better-auth-secret
-ENV AUTH_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:3012,http://127.0.0.1:3012
-ENV AUTH_ADMIN_EMAIL=admin@nipponcarsrl.com.ar
-ENV AUTH_ADMIN_PASSWORD=Nippon111+
-ENV AUTH_ADMIN_NAME=Administrador
+# Auth Central: URL pública de esta app, URL del auth central y appKey registrado.
+ENV NEXT_PUBLIC_APP_URL=http://localhost:3012
+ENV CENTRAL_AUTH_URL=http://localhost:3100
+ENV CENTRAL_APP_KEY=intra-talleres
 ENV MONGODB_URI=mongodb://host.docker.internal:27017/intra_talleres
 ENV MONGODB_DB=intra_talleres
 ENV DBHOST_NIC=host.docker.internal

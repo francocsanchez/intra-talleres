@@ -123,11 +123,13 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - La consulta de unidades por `interno` se realiza contra SQL Server en modo solo lectura.
 - El catálogo de talleres no tiene seed automático y queda bajo carga manual del usuario.
 - La aplicación exige autenticación antes de permitir acceso a dashboard, presupuestos, configuración o APIs internas.
-- La autenticación usa `Better Auth` con email y contraseña, persistiendo sesiones y usuarios en la misma base MongoDB del sistema.
-- Existe bootstrap automático del usuario administrador inicial:
-  - `admin@nipponcarsrl.com.ar`
-  - clave por default `Nippon111+`
-- Better Auth debe aceptar orígenes configurables para desarrollo y despliegue mediante `AUTH_TRUSTED_ORIGINS`.
+- La autenticación se delega a un sistema externo `Auth Central`.
+- La app no mantiene usuarios, contraseñas ni sesiones propias de autenticación.
+- La validación de sesión se hace server-to-server contra `GET {CENTRAL_AUTH_URL}/api/internal/session?appKey={CENTRAL_APP_KEY}` reenviando el header `cookie`.
+- La app debe distinguir:
+  - `401` cuando no hay sesión central válida
+  - `403` cuando el usuario está inactivo o sin acceso a esta app
+- El rol operativo del usuario se lee desde `access[].role` para el `appKey` de la aplicación.
 
 ## Modelo funcional actual
 
@@ -162,7 +164,6 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 ## Endpoints actuales
 
-- `GET/POST /api/auth/[...all]`
 - `GET /api/unidades?interno=...`
 - `GET /api/presupuestos`
 - `POST /api/presupuestos`
@@ -171,11 +172,14 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - `POST /api/talleres`
 - `PATCH /api/talleres/[id]`
 - `DELETE /api/talleres/[id]`
+- `GET /logout`
 
 ## Navegacion actual
 
 - `Sign-in`
-  - acceso autenticado a la operación
+  - deriva al login central si no existe sesión
+- `Forbidden`
+  - informa que el usuario autenticado no tiene acceso a la app
 - `Dashboard`
   - vista compacta de resumen por estado
 - `Presupuestos`
@@ -215,22 +219,20 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 ## Autenticacion y despliegue
 
-- El alta pública de usuarios está deshabilitada.
-- El usuario administrador inicial se crea automáticamente si no existe.
-- Si el usuario administrador ya existe, su nombre, rol y `AUTH_ADMIN_PASSWORD` deben sincronizarse desde variables de entorno al iniciar la app.
-- El acceso y el consumo de APIs del sistema requieren sesión válida.
+- La app no debe exponer login local ni alta local de usuarios.
+- El acceso y el consumo de APIs del sistema requieren sesión central válida.
+- Si no hay sesión central, la app debe redirigir a `{CENTRAL_AUTH_URL}/login?appKey={CENTRAL_APP_KEY}&returnTo={NEXT_PUBLIC_APP_URL + ruta}`.
+- Si el usuario no tiene acceso, la app debe mostrar una pantalla `forbidden`.
+- El logout debe redirigir a `{CENTRAL_AUTH_URL}/logout?returnTo={NEXT_PUBLIC_APP_URL + ruta}`.
 - La aplicación está dockerizada para correr en el puerto `3012`.
 - Existe un `docker-compose.yml` listo para Portainer que levanta únicamente la app y reutiliza el MongoDB externo ya existente en el servidor.
 - El repositorio debe validar por CI la construcción de la imagen Docker antes de promoción a producción.
 - El `Dockerfile` define defaults configurables para:
   - `PORT`
   - `HOSTNAME`
-  - `BETTER_AUTH_URL`
-  - `BETTER_AUTH_SECRET`
-  - `AUTH_TRUSTED_ORIGINS`
-  - `AUTH_ADMIN_EMAIL`
-  - `AUTH_ADMIN_PASSWORD`
-  - `AUTH_ADMIN_NAME`
+  - `NEXT_PUBLIC_APP_URL`
+  - `CENTRAL_AUTH_URL`
+  - `CENTRAL_APP_KEY`
   - `MONGODB_URI`
   - `MONGODB_DB`
   - `DBHOST_NIC`
@@ -243,12 +245,9 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 - `PORT`
 - `HOSTNAME`
-- `BETTER_AUTH_URL`
-- `BETTER_AUTH_SECRET`
-- `AUTH_TRUSTED_ORIGINS`
-- `AUTH_ADMIN_EMAIL`
-- `AUTH_ADMIN_PASSWORD`
-- `AUTH_ADMIN_NAME`
+- `NEXT_PUBLIC_APP_URL`
+- `CENTRAL_AUTH_URL`
+- `CENTRAL_APP_KEY`
 - `MONGODB_URI`
 - `MONGODB_DB`
 - `DBHOST_NIC`
@@ -261,8 +260,9 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 - `.env.example` debe mantenerse completo y actualizado con todas las variables necesarias para ejecutar la app.
 - `.env.example` no debe dejar credenciales reales de infraestructura: usar placeholders o defaults de desarrollo.
-- `.env.example` debe dejar claro que `BETTER_AUTH_SECRET` no es la contraseña del usuario administrador.
-- `.env.example` debe incluir también los orígenes confiables de Better Auth para evitar errores de `Invalid origin` en desarrollo.
+- `.env.example` debe incluir `NEXT_PUBLIC_APP_URL`, `CENTRAL_AUTH_URL` y `CENTRAL_APP_KEY`.
+- `.env.example` debe dejar claro que la app depende de Auth Central para login, logout, sesión y permisos.
+- Si todavía existe `.env.local` con variables viejas de Better Auth, deben reemplazarse por las de Auth Central antes de probar el acceso.
 
 ## CI
 

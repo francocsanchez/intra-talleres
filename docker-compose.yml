@@ -11,12 +11,12 @@ services:
       NODE_ENV: production
       PORT: 3012
       HOSTNAME: 0.0.0.0
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3012}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-change-this-better-auth-secret}
-      AUTH_TRUSTED_ORIGINS: ${AUTH_TRUSTED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:3012,http://127.0.0.1:3012}
-      AUTH_ADMIN_EMAIL: ${AUTH_ADMIN_EMAIL:-admin@nipponcarsrl.com.ar}
-      AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD:-Nippon111+}
-      AUTH_ADMIN_NAME: ${AUTH_ADMIN_NAME:-Administrador}
+      # URL pública real de esta app para los returnTo de Auth Central.
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3012}
+      # Dentro del contenedor, si Auth Central corre en el host usar host.docker.internal.
+      CENTRAL_AUTH_URL: ${CENTRAL_AUTH_URL:-http://host.docker.internal:3100}
+      # Debe coincidir con el appKey habilitado en Auth Central.
+      CENTRAL_APP_KEY: ${CENTRAL_APP_KEY:-intra-talleres}
       MONGODB_URI: ${MONGODB_URI:-mongodb://host.docker.internal:27017/intra_talleres}
       MONGODB_DB: ${MONGODB_DB:-intra_talleres}
       DBHOST_NIC: ${DBHOST_NIC:-host.docker.internal}

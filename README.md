@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Intra Talleres
+
+Aplicación operativa para alta y seguimiento de presupuestos de talleres sobre `Next 16`, `React 19`, `Tailwind 4`, `shadcn`, MongoDB y SQL Server de solo lectura.
+
+## Auth Central
+
+La app ya no usa autenticación local. Para ingresar depende de un servicio externo Auth Central.
+
+Variables mínimas:
+
+```env
+NEXT_PUBLIC_APP_URL=http://localhost:3012
+CENTRAL_AUTH_URL=http://localhost:3100
+CENTRAL_APP_KEY=intra-talleres
+```
+
+Qué debe existir fuera de este repo:
+
+1. Un Auth Central corriendo y accesible desde esta app.
+2. Un `appKey` dado de alta en Auth Central que coincida con `CENTRAL_APP_KEY`.
+3. Un usuario con acceso a ese `appKey`.
+4. La URL de retorno de esta app habilitada en Auth Central si el sistema central valida destinos permitidos.
+
+Comportamiento esperado:
+
+1. Si entrás sin sesión, `/sign-in` te redirige a `{CENTRAL_AUTH_URL}/login`.
+2. Si la sesión existe pero no tiene acceso al `appKey`, la app muestra `/forbidden`.
+3. Si la sesión tiene acceso, entra al dashboard.
+4. `/logout` redirige a `{CENTRAL_AUTH_URL}/logout`.
 
 ## Getting Started
 
-First, run the development server:
+1. Copiá `.env.example` a `.env.local`.
+2. Eliminá o reemplazá cualquier variable vieja de Better Auth que todavía tengas en `.env.local`.
+3. Completá MongoDB y SQL Server.
+4. Configurá las variables de Auth Central.
+5. Verificá que `CENTRAL_AUTH_URL` responda desde la máquina o contenedor donde corre esta app.
+6. Levantá la app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abrí [http://localhost:3012](http://localhost:3012).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Docker
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+En `docker-compose.yml` ya están declaradas las variables nuevas:
 
-## Learn More
+- `NEXT_PUBLIC_APP_URL`
+- `CENTRAL_AUTH_URL`
+- `CENTRAL_APP_KEY`
 
-To learn more about Next.js, take a look at the following resources:
+Si Auth Central corre fuera del contenedor pero en el mismo host, el default recomendado es:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```env
+CENTRAL_AUTH_URL=http://host.docker.internal:3100
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Problema común
 
-## Deploy on Vercel
+Si aparece `Runtime TypeError: fetch failed` al abrir `/`, casi siempre significa una de estas dos cosas:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. `CENTRAL_AUTH_URL` no está definido en `.env.local` o apunta a una URL incorrecta.
+2. Auth Central no está levantado o no es accesible desde donde corre esta app.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+En tu caso actual, `.env.local` todavía conserva variables de Better Auth y no define `NEXT_PUBLIC_APP_URL`, `CENTRAL_AUTH_URL` ni `CENTRAL_APP_KEY`.

@@ -73,6 +73,7 @@ type DashboardShellProps = {
   initialError?: string | null;
   currentUserEmail: string;
   currentUserName?: string | null;
+  currentUserRole?: string;
 };
 
 type ViewMode = "dashboard" | "presupuestos" | "configuracion";
@@ -211,6 +212,7 @@ export function DashboardShell({
   initialError,
   currentUserEmail,
   currentUserName,
+  currentUserRole,
 }: DashboardShellProps) {
   const [activeView, setActiveView] = useState<ViewMode>("dashboard");
   const [presupuestos, setPresupuestos] = useState(initialPresupuestos);
@@ -687,6 +689,9 @@ export function DashboardShell({
               </p>
               <p className="text-sm font-medium">
                 {currentUserName || "Administrador"} · {currentUserEmail}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Rol para esta app: {currentUserRole || "Sin rol"}
               </p>
             </div>
             <SignOutButton />
