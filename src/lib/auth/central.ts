@@ -4,6 +4,8 @@ import type { CentralSession } from "@/lib/types";
 
 const CENTRAL_AUTH_URL =
   process.env.CENTRAL_AUTH_URL || "http://localhost:3100";
+const CENTRAL_AUTH_PUBLIC_URL =
+  process.env.CENTRAL_AUTH_PUBLIC_URL || CENTRAL_AUTH_URL;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3012";
 const APP_KEY = process.env.CENTRAL_APP_KEY || "intra-talleres";
 
@@ -40,14 +42,14 @@ function buildAppUrl(pathname = "/") {
 }
 
 export function buildCentralLoginUrl(pathname = "/") {
-  const url = new URL("/login", CENTRAL_AUTH_URL);
+  const url = new URL("/login", CENTRAL_AUTH_PUBLIC_URL);
   url.searchParams.set("appKey", APP_KEY);
   url.searchParams.set("returnTo", buildAppUrl(pathname));
   return url.toString();
 }
 
 export function buildCentralLogoutUrl(pathname = "/") {
-  const url = new URL("/logout", CENTRAL_AUTH_URL);
+  const url = new URL("/logout", CENTRAL_AUTH_PUBLIC_URL);
   url.searchParams.set("returnTo", buildAppUrl(pathname));
   return url.toString();
 }

@@ -2,6 +2,10 @@
 
 ## 2026-08-28
 
+- Se separó la URL interna de Auth Central (`CENTRAL_AUTH_URL`) de la URL pública de navegador (`CENTRAL_AUTH_PUBLIC_URL`) para soportar despliegue en producción con stacks Docker distintos y red compartida.
+- La construcción de URLs de login y logout ahora usa `CENTRAL_AUTH_PUBLIC_URL`, mientras que la validación server-to-server de sesión sigue usando `CENTRAL_AUTH_URL`.
+- Se conectó el servicio `app` del `docker-compose.yml` a la red Docker externa `internal-apps` sin cambiar el puerto público actual de la aplicación.
+- Se actualizaron `.env.example`, `Dockerfile`, `README.md` y `AGENTS.md` con la configuración recomendada para Portainer usando `http://auth-central:3000` internamente y `http://192.168.100.31:32770` como URL pública de Auth Central.
 - Se reemplazó la autenticación local con `Better Auth` por integración server-to-server con Auth Central, reenviando la `cookie` actual al endpoint `/api/internal/session`.
 - Se agregaron helpers reutilizables en `src/lib/auth/central.ts` para consultar sesión, validar acceso por `appKey`, obtener rol y redirigir al login o logout central.
 - La ruta `/sign-in` dejó de mostrar formulario local y ahora deriva al login central, mientras que `/logout` redirige al cierre de sesión central.

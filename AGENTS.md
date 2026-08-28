@@ -126,6 +126,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - La autenticación se delega a un sistema externo `Auth Central`.
 - La app no mantiene usuarios, contraseñas ni sesiones propias de autenticación.
 - La validación de sesión se hace server-to-server contra `GET {CENTRAL_AUTH_URL}/api/internal/session?appKey={CENTRAL_APP_KEY}` reenviando el header `cookie`.
+- Los redirects de login y logout en navegador deben usar `CENTRAL_AUTH_PUBLIC_URL` cuando la URL pública difiera de la interna entre contenedores.
 - La app debe distinguir:
   - `401` cuando no hay sesión central válida
   - `403` cuando el usuario está inactivo o sin acceso a esta app
@@ -221,19 +222,21 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 - La app no debe exponer login local ni alta local de usuarios.
 - El acceso y el consumo de APIs del sistema requieren sesión central válida.
-- Si no hay sesión central, la app debe redirigir a `{CENTRAL_AUTH_URL}/login?appKey={CENTRAL_APP_KEY}&returnTo={NEXT_PUBLIC_APP_URL + ruta}`.
+- Si no hay sesión central, la app debe redirigir a `{CENTRAL_AUTH_PUBLIC_URL}/login?appKey={CENTRAL_APP_KEY}&returnTo={NEXT_PUBLIC_APP_URL + ruta}`.
 - Si el usuario no tiene acceso, la app debe mostrar una pantalla `forbidden`.
-- El logout debe redirigir a `{CENTRAL_AUTH_URL}/logout?returnTo={NEXT_PUBLIC_APP_URL + ruta}`.
+- El logout debe redirigir a `{CENTRAL_AUTH_PUBLIC_URL}/logout?returnTo={NEXT_PUBLIC_APP_URL + ruta}`.
 - El cierre de sesión debe ejecutarse con `POST` real hacia Auth Central; un `GET /logout` solo puede servir como puente o autosubmit, pero no invalida la cookie central por sí solo.
-- Si la sesión central no se invalida al salir, priorizar `form action="{CENTRAL_AUTH_URL}/logout?...` con `method="post"` directo desde el navegador en lugar de depender de redirects `307` entre apps.
+- Si la sesión central no se invalida al salir, priorizar `form action="{CENTRAL_AUTH_PUBLIC_URL}/logout?...` con `method="post"` directo desde el navegador en lugar de depender de redirects `307` entre apps.
 - La aplicación está dockerizada para correr en el puerto `3012`.
 - Existe un `docker-compose.yml` listo para Portainer que levanta únicamente la app y reutiliza el MongoDB externo ya existente en el servidor.
+- El stack Docker para Portainer debe poder sumarse también a la red Docker externa `internal-apps` para comunicarse con el servicio `auth-central` por `http://auth-central:3000`.
 - El repositorio debe validar por CI la construcción de la imagen Docker antes de promoción a producción.
 - El `Dockerfile` define defaults configurables para:
   - `PORT`
   - `HOSTNAME`
   - `NEXT_PUBLIC_APP_URL`
   - `CENTRAL_AUTH_URL`
+  - `CENTRAL_AUTH_PUBLIC_URL`
   - `CENTRAL_APP_KEY`
   - `MONGODB_URI`
   - `MONGODB_DB`
@@ -249,6 +252,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - `HOSTNAME`
 - `NEXT_PUBLIC_APP_URL`
 - `CENTRAL_AUTH_URL`
+- `CENTRAL_AUTH_PUBLIC_URL`
 - `CENTRAL_APP_KEY`
 - `MONGODB_URI`
 - `MONGODB_DB`
@@ -262,7 +266,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 - `.env.example` debe mantenerse completo y actualizado con todas las variables necesarias para ejecutar la app.
 - `.env.example` no debe dejar credenciales reales de infraestructura: usar placeholders o defaults de desarrollo.
-- `.env.example` debe incluir `NEXT_PUBLIC_APP_URL`, `CENTRAL_AUTH_URL` y `CENTRAL_APP_KEY`.
+- `.env.example` debe incluir `NEXT_PUBLIC_APP_URL`, `CENTRAL_AUTH_URL`, `CENTRAL_AUTH_PUBLIC_URL` y `CENTRAL_APP_KEY`.
 - `.env.example` debe dejar claro que la app depende de Auth Central para login, logout, sesión y permisos.
 - Si todavía existe `.env.local` con variables viejas de Better Auth, deben reemplazarse por las de Auth Central antes de probar el acceso.
 
@@ -277,3 +281,4 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
   - servicio `app`
   - publicación del puerto `3012`
   - `extra_hosts` para resolver `host.docker.internal` y permitir acceso al MongoDB y SQL Server externos desde el contenedor
+  - unión a la red Docker externa `internal-apps` para interoperar con `auth-central`

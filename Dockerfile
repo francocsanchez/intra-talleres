@@ -13,6 +13,7 @@ ENV HOSTNAME=0.0.0.0
 # Auth Central: URL pública de esta app, URL del auth central y appKey registrado.
 ENV NEXT_PUBLIC_APP_URL=http://localhost:3012
 ENV CENTRAL_AUTH_URL=http://localhost:3100
+ENV CENTRAL_AUTH_PUBLIC_URL=http://localhost:3100
 ENV CENTRAL_APP_KEY=intra-talleres
 ENV MONGODB_URI=mongodb://host.docker.internal:27017/intra_talleres
 ENV MONGODB_DB=intra_talleres
@@ -36,6 +37,7 @@ ENV HOSTNAME=0.0.0.0
 # Auth Central: URL pública de esta app, URL del auth central y appKey registrado.
 ENV NEXT_PUBLIC_APP_URL=http://localhost:3012
 ENV CENTRAL_AUTH_URL=http://localhost:3100
+ENV CENTRAL_AUTH_PUBLIC_URL=http://localhost:3100
 ENV CENTRAL_APP_KEY=intra-talleres
 ENV MONGODB_URI=mongodb://host.docker.internal:27017/intra_talleres
 ENV MONGODB_DB=intra_talleres

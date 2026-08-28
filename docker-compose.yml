@@ -13,8 +13,10 @@ services:
       HOSTNAME: 0.0.0.0
       # URL pública real de esta app para los returnTo de Auth Central.
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3012}
-      # Dentro del contenedor, si Auth Central corre en el host usar host.docker.internal.
-      CENTRAL_AUTH_URL: ${CENTRAL_AUTH_URL:-http://host.docker.internal:3100}
+      # URL interna entre contenedores para la validación server-to-server.
+      CENTRAL_AUTH_URL: ${CENTRAL_AUTH_URL:-http://auth-central:3000}
+      # URL pública de Auth Central para redirects de login y logout en el navegador.
+      CENTRAL_AUTH_PUBLIC_URL: ${CENTRAL_AUTH_PUBLIC_URL:-http://192.168.100.31:32770}
       # Debe coincidir con el appKey habilitado en Auth Central.
       CENTRAL_APP_KEY: ${CENTRAL_APP_KEY:-intra-talleres}
       MONGODB_URI: ${MONGODB_URI:-mongodb://host.docker.internal:27017/intra_talleres}
@@ -28,7 +30,10 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - intra-talleres-net
+      - internal-apps
 
 networks:
   intra-talleres-net:
     driver: bridge
+  internal-apps:
+    external: true
