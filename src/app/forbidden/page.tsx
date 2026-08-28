@@ -2,7 +2,7 @@ import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { getServerAuthResult } from "@/lib/auth-session";
 
 export default async function ForbiddenPage() {
@@ -33,9 +33,9 @@ export default async function ForbiddenPage() {
             cerrá sesión para entrar con otra cuenta.
           </p>
           <div className="mt-5 flex gap-2">
-            <Link href="/logout" className={buttonVariants({ variant: "default" })}>
-              Cerrar sesión central
-            </Link>
+            <form action="/logout" method="post">
+              <Button type="submit">Cerrar sesión central</Button>
+            </form>
             <Link href="/" className={buttonVariants({ variant: "outline" })}>
               Reintentar acceso
             </Link>

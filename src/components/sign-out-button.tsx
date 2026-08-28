@@ -1,29 +1,16 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useTransition } from "react";
-import { LoaderCircle, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
 export function SignOutButton() {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-
-  function handleSignOut() {
-    startTransition(() => {
-      router.push("/logout");
-    });
-  }
-
   return (
-    <Button type="button" variant="outline" size="sm" onClick={handleSignOut}>
-      {isPending ? (
-        <LoaderCircle className="size-4 animate-spin" />
-      ) : (
+    <form action="/logout" method="post">
+      <Button type="submit" variant="outline" size="sm">
         <LogOut className="size-4" />
-      )}
-      Salir
-    </Button>
+        Salir
+      </Button>
+    </form>
   );
 }
