@@ -2,11 +2,13 @@ import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { buildCentralLogoutUrl } from "@/lib/auth/central";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getServerAuthResult } from "@/lib/auth-session";
 
 export default async function ForbiddenPage() {
   const authResult = await getServerAuthResult();
+  const logoutUrl = buildCentralLogoutUrl("/sign-in");
 
   if (authResult.status === "unauthorized") {
     redirect("/sign-in");
@@ -33,7 +35,7 @@ export default async function ForbiddenPage() {
             cerrá sesión para entrar con otra cuenta.
           </p>
           <div className="mt-5 flex gap-2">
-            <form action="/logout" method="post">
+            <form action={logoutUrl} method="post">
               <Button type="submit">Cerrar sesión central</Button>
             </form>
             <Link href="/" className={buttonVariants({ variant: "outline" })}>

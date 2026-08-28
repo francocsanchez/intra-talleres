@@ -74,6 +74,7 @@ type DashboardShellProps = {
   currentUserEmail: string;
   currentUserName?: string | null;
   currentUserRole?: string;
+  logoutUrl: string;
 };
 
 type ViewMode = "dashboard" | "presupuestos" | "configuracion";
@@ -213,6 +214,7 @@ export function DashboardShell({
   currentUserEmail,
   currentUserName,
   currentUserRole,
+  logoutUrl,
 }: DashboardShellProps) {
   const [activeView, setActiveView] = useState<ViewMode>("dashboard");
   const [presupuestos, setPresupuestos] = useState(initialPresupuestos);
@@ -694,7 +696,7 @@ export function DashboardShell({
                 Rol para esta app: {currentUserRole || "Sin rol"}
               </p>
             </div>
-            <SignOutButton />
+            <SignOutButton action={logoutUrl} />
           </div>
           <div className="grid gap-2 md:grid-cols-3">
             {navigationItems.map((item) => {

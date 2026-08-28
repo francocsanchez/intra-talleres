@@ -11,6 +11,7 @@
 - Se actualizaron `.env.example`, `Dockerfile`, `docker-compose.yml` y `AGENTS.md` para reflejar las nuevas variables `CENTRAL_AUTH_URL`, `NEXT_PUBLIC_APP_URL` y `CENTRAL_APP_KEY`.
 - Se aclaró en la documentación de configuración que `.env.local` también debe migrarse a las variables nuevas de Auth Central y que mantener variables viejas de Better Auth provoca fallas de login.
 - Se corrigió el logout central para usar `POST` real hacia Auth Central; antes se navegaba con `GET /logout` y la sesión no se invalidaba.
+- Se ajustó el botón de salida para postear directamente al dominio de Auth Central, evitando que una redirección intermedia local pierda la cookie central durante el logout.
 
 ## 2026-08-27
 

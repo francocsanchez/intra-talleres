@@ -1,5 +1,5 @@
 import { DashboardShell } from "@/components/dashboard-shell";
-import { getAppRole } from "@/lib/auth/central";
+import { buildCentralLogoutUrl, getAppRole } from "@/lib/auth/central";
 import { requireServerSession } from "@/lib/auth-session";
 import { getPresupuestos, getTalleres } from "@/lib/data";
 import type { PresupuestoDTO, TallerDTO } from "@/lib/types";
@@ -31,6 +31,7 @@ export default async function Home() {
       currentUserEmail={session.user.email}
       currentUserName={session.user.name}
       currentUserRole={getAppRole(session) ?? undefined}
+      logoutUrl={buildCentralLogoutUrl("/sign-in")}
     />
   );
 }

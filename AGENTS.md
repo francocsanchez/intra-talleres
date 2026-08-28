@@ -225,6 +225,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - Si el usuario no tiene acceso, la app debe mostrar una pantalla `forbidden`.
 - El logout debe redirigir a `{CENTRAL_AUTH_URL}/logout?returnTo={NEXT_PUBLIC_APP_URL + ruta}`.
 - El cierre de sesión debe ejecutarse con `POST` real hacia Auth Central; un `GET /logout` solo puede servir como puente o autosubmit, pero no invalida la cookie central por sí solo.
+- Si la sesión central no se invalida al salir, priorizar `form action="{CENTRAL_AUTH_URL}/logout?...` con `method="post"` directo desde el navegador en lugar de depender de redirects `307` entre apps.
 - La aplicación está dockerizada para correr en el puerto `3012`.
 - Existe un `docker-compose.yml` listo para Portainer que levanta únicamente la app y reutiliza el MongoDB externo ya existente en el servidor.
 - El repositorio debe validar por CI la construcción de la imagen Docker antes de promoción a producción.
