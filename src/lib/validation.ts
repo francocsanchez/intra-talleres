@@ -25,8 +25,7 @@ export const lookupUnidadSchema = z.object({
     .max(32),
 });
 
-export const createPresupuestoSchema = z.object({
-  interno: z.string().trim().min(1).max(32),
+const presupuestoBaseSchema = z.object({
   tallerId: z.string().trim().min(1),
   km: z.coerce.number().int().min(0),
   costo: z.coerce.number().positive(),
@@ -36,6 +35,27 @@ export const createPresupuestoSchema = z.object({
   detalle: optionalTextField,
   fechaIngresoTaller: z.string().trim().optional(),
   fechaEgresoTaller: z.string().trim().optional(),
+});
+
+export const createPresupuestoInternoSchema = presupuestoBaseSchema.extend({
+  origen: z.literal("interno"),
+  interno: z.string().trim().min(1).max(32),
+});
+
+export const createPresupuestoExternoSchema = presupuestoBaseSchema.extend({
+  origen: z.literal("externo"),
+  dominio: z.string().trim().min(1).max(32),
+  marcaCodigo: z.string().trim().min(1).max(32),
+  modeloCodigo: z.string().trim().min(1).max(32),
+});
+
+export const createPresupuestoSchema = z.discriminatedUnion("origen", [
+  createPresupuestoInternoSchema,
+  createPresupuestoExternoSchema,
+]);
+
+export const lookupCatalogoModelosSchema = z.object({
+  marcaCodigo: z.string().trim().min(1).max(32),
 });
 
 export const updatePresupuestoEstadoSchema = z.object({

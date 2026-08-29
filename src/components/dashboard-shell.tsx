@@ -67,6 +67,8 @@ import type {
   PresupuestoDTO,
   PresupuestoEstado,
   TallerDTO,
+  UnidadMarcaOptionDTO,
+  UnidadModeloOptionDTO,
   UnidadDTO,
 } from "@/lib/types";
 
@@ -84,6 +86,23 @@ type ViewMode = "dashboard" | "presupuestos" | "configuracion";
 
 type FormState = {
   interno: string;
+  tallerId: string;
+  km: string;
+  costo: string;
+  observaciones: string;
+  nroPresupuesto: string;
+  prioridad: string;
+  detalle: string;
+  fechaIngresoTaller: string;
+  fechaEgresoTaller: string;
+};
+
+type ExternalFormState = {
+  dominio: string;
+  marcaCodigo: string;
+  marcaNombre: string;
+  modeloCodigo: string;
+  modeloNombre: string;
   tallerId: string;
   km: string;
   costo: string;
@@ -113,6 +132,23 @@ type TooltipValue = TooltipScalarValue | TooltipScalarValue[];
 
 const initialFormState: FormState = {
   interno: "",
+  tallerId: "",
+  km: "",
+  costo: "",
+  observaciones: "",
+  nroPresupuesto: "",
+  prioridad: "",
+  detalle: "",
+  fechaIngresoTaller: "",
+  fechaEgresoTaller: "",
+};
+
+const initialExternalFormState: ExternalFormState = {
+  dominio: "",
+  marcaCodigo: "",
+  marcaNombre: "",
+  modeloCodigo: "",
+  modeloNombre: "",
   tallerId: "",
   km: "",
   costo: "",
@@ -259,10 +295,12 @@ export function DashboardShell({
   );
   const [vehicle, setVehicle] = useState<UnidadDTO | null>(null);
   const [form, setForm] = useState<FormState>(initialFormState);
+  const [externalForm, setExternalForm] = useState<ExternalFormState>(initialExternalFormState);
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [feedback, setFeedback] = useState<string | null>(initialError || null);
   const [lookupMessage, setLookupMessage] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isExternalCreateDialogOpen, setIsExternalCreateDialogOpen] = useState(false);
   const [detailsPresupuesto, setDetailsPresupuesto] = useState<PresupuestoDTO | null>(null);
   const [managePresupuesto, setManagePresupuesto] = useState<PresupuestoDTO | null>(null);
   const [manageEstadoDraft, setManageEstadoDraft] = useState<PresupuestoEstado>("Pendiente");
@@ -272,8 +310,11 @@ export function DashboardShell({
   const [isSubmitting, startSubmitTransition] = useTransition();
   const [isRefreshing, startRefreshTransition] = useTransition();
   const [isLookingUp, startLookupTransition] = useTransition();
+  const [isLoadingExternalCatalog, startExternalCatalogTransition] = useTransition();
   const [isSavingTaller, startSavingTallerTransition] = useTransition();
   const [isDeletingTaller, startDeletingTallerTransition] = useTransition();
+  const [externalBrands, setExternalBrands] = useState<UnidadMarcaOptionDTO[]>([]);
+  const [externalModels, setExternalModels] = useState<UnidadModeloOptionDTO[]>([]);
   const deferredDominio = useDeferredValue(filters.dominio);
   const deferredInterno = useDeferredValue(filters.interno);
   const canManageSettings = currentUserRole === "admin";
@@ -363,7 +404,7 @@ export function DashboardShell({
   const chartOptions = useMemo(() => {
     const aprobadosAnualesPorTaller = new Map<
       string,
-      { year: string; taller: string; cantidad: number; monto: number }
+      { year: string; month: string; taller: string; cantidad: number; monto: number }
     >();
 
     for (const presupuesto of presupuestos) {
@@ -372,10 +413,12 @@ export function DashboardShell({
       }
 
       const yearKey = getYearKey(presupuesto.createdAt);
+      const monthKey = getMonthKey(presupuesto.createdAt);
       const tallerLabel = presupuesto.tallerNombre?.trim() || "Sin taller";
-      const annualTallerKey = `${yearKey}::${tallerLabel}`;
+      const annualTallerKey = `${monthKey}::${tallerLabel}`;
       const currentAnnualBucket = aprobadosAnualesPorTaller.get(annualTallerKey) || {
         year: yearKey,
+        month: monthKey,
         taller: tallerLabel,
         cantidad: 0,
         monto: 0,
@@ -393,14 +436,14 @@ export function DashboardShell({
         return a.year.localeCompare(b.year);
       }
 
-      if (b.cantidad !== a.cantidad) {
-        return b.cantidad - a.cantidad;
+      if (a.month !== b.month) {
+        return a.month.localeCompare(b.month);
       }
 
       return a.taller.localeCompare(b.taller, "es");
     });
     const approvedAnnualWorkshopLabels = approvedAnnualWorkshopBuckets.map(
-      (item) => `${item.year} · ${item.taller}`,
+      (item) => `${formatMonthFilterLabel(item.month)} · ${item.taller}`,
     );
 
     const presupuestosPorEstadoDelMes = estadoChartOrder.map((estado) => ({
@@ -661,11 +704,76 @@ export function DashboardShell({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function updateExternalForm<K extends keyof ExternalFormState>(
+    key: K,
+    value: ExternalFormState[K],
+  ) {
+    setExternalForm((current) => ({ ...current, [key]: value }));
+  }
+
   function resetForm() {
     setForm(initialFormState);
     setVehicle(null);
     setLookupMessage(null);
     setIsCreateDialogOpen(false);
+  }
+
+  function resetExternalForm() {
+    setExternalForm(initialExternalFormState);
+    setExternalModels([]);
+    setIsExternalCreateDialogOpen(false);
+  }
+
+  function handleCreateDialogOpenChange(open: boolean) {
+    if (!open) {
+      resetForm();
+      return;
+    }
+
+    setIsCreateDialogOpen(true);
+  }
+
+  async function loadExternalBrands() {
+    try {
+      const data = await parseJsonResponse<{ marcas: UnidadMarcaOptionDTO[] }>(
+        await fetch("/api/unidades/catalogo", {
+          cache: "no-store",
+        }),
+      );
+      setExternalBrands(data.marcas);
+      setFeedback(null);
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "No pudimos cargar las marcas para unidades externas.",
+      );
+    }
+  }
+
+  async function loadExternalModels(marcaCodigo: string) {
+    if (!marcaCodigo) {
+      setExternalModels([]);
+      return;
+    }
+
+    try {
+      const data = await parseJsonResponse<{ modelos: UnidadModeloOptionDTO[] }>(
+        await fetch(
+          `/api/unidades/catalogo?marcaCodigo=${encodeURIComponent(marcaCodigo)}`,
+          { cache: "no-store" },
+        ),
+      );
+      setExternalModels(data.modelos);
+      setFeedback(null);
+    } catch (error) {
+      setExternalModels([]);
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "No pudimos cargar los modelos de la marca seleccionada.",
+      );
+    }
   }
 
   function resetTallerForm() {
@@ -712,6 +820,68 @@ export function DashboardShell({
     });
   }
 
+  function openExternalCreateDialog(open: boolean) {
+    if (!open) {
+      resetExternalForm();
+      return;
+    }
+
+    setIsExternalCreateDialogOpen(true);
+
+    if (externalBrands.length > 0) {
+      return;
+    }
+
+    startExternalCatalogTransition(async () => {
+      await loadExternalBrands();
+    });
+  }
+
+  function handleExternalBrandInput(value: string) {
+    const normalizedValue = value.trim().toLowerCase();
+    const matchedBrand =
+      externalBrands.find((marca) => marca.nombre.trim().toLowerCase() === normalizedValue) ??
+      null;
+
+    setExternalForm((current) => ({
+      ...current,
+      marcaNombre: value,
+      marcaCodigo: matchedBrand?.codigo || "",
+      modeloCodigo:
+        matchedBrand && matchedBrand.codigo === current.marcaCodigo ? current.modeloCodigo : "",
+      modeloNombre:
+        matchedBrand && matchedBrand.codigo === current.marcaCodigo ? current.modeloNombre : "",
+    }));
+
+    setExternalModels(matchedBrand && matchedBrand.codigo === externalForm.marcaCodigo ? externalModels : []);
+
+    if (!matchedBrand) {
+      return;
+    }
+
+    startExternalCatalogTransition(async () => {
+      await loadExternalModels(matchedBrand.codigo);
+    });
+  }
+
+  function handleExternalModelInput(value: string) {
+    const normalizedValue = value.trim().toLowerCase();
+    const matchedModel =
+      externalModels.find((modelo) => modelo.nombre.trim().toLowerCase() === normalizedValue) ??
+      null;
+
+    setExternalForm((current) => ({
+      ...current,
+      modeloNombre: value,
+      modeloCodigo: matchedModel?.codigo || "",
+    }));
+  }
+
+  const selectedTallerName =
+    talleres.find((taller) => taller.id === form.tallerId)?.nombre ?? "";
+  const selectedExternalTallerName =
+    talleres.find((taller) => taller.id === externalForm.tallerId)?.nombre ?? "";
+
   function createPresupuesto() {
     startSubmitTransition(async () => {
       try {
@@ -722,6 +892,7 @@ export function DashboardShell({
           },
           body: JSON.stringify({
             ...form,
+            origen: "interno",
             interno: form.interno.trim(),
             prioridad: form.prioridad || undefined,
           }),
@@ -734,6 +905,36 @@ export function DashboardShell({
       } catch (error) {
         setFeedback(
           error instanceof Error ? error.message : "No pudimos guardar el presupuesto.",
+        );
+      }
+    });
+  }
+
+  function createExternalPresupuesto() {
+    startSubmitTransition(async () => {
+      try {
+        const response = await fetch("/api/presupuestos", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...externalForm,
+            origen: "externo",
+            dominio: externalForm.dominio.trim().toUpperCase(),
+            prioridad: externalForm.prioridad || undefined,
+          }),
+        });
+
+        const data = await parseJsonResponse<{ presupuesto: PresupuestoDTO }>(response);
+        setPresupuestos((current) => [data.presupuesto, ...current]);
+        setFeedback("Presupuesto externo guardado en estado Pendiente.");
+        resetExternalForm();
+      } catch (error) {
+        setFeedback(
+          error instanceof Error
+            ? error.message
+            : "No pudimos guardar el presupuesto externo.",
         );
       }
     });
@@ -1057,7 +1258,7 @@ export function DashboardShell({
             <div className="grid gap-4">
               <ChartCard
                 title="Aprobados anualizados por taller"
-                description="Cantidad de presupuestos aprobados por año y taller, con línea de monto total aprobado."
+                description="Cantidad de presupuestos aprobados por mes y taller, con línea de monto total aprobado."
               >
                 <EChartsSurface
                   option={chartOptions.aprobadosAnualesPorTallerOption}
@@ -1109,83 +1310,321 @@ export function DashboardShell({
                     </CardDescription>
                   </div>
                   <div className="flex flex-col gap-2 xl:items-end">
-                    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                      <DialogTrigger
-                        render={
-                          <Button type="button" className="w-full xl:w-auto" />
-                        }
+                    <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
+                      <Dialog
+                        open={isCreateDialogOpen}
+                        onOpenChange={handleCreateDialogOpenChange}
                       >
-                          <Plus className="size-4" />
-                          Nuevo presupuesto
-                      </DialogTrigger>
-                      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+                        <DialogTrigger
+                          render={
+                            <Button type="button" className="w-full xl:w-auto" />
+                          }
+                        >
+                            <Plus className="size-4" />
+                            Nuevo presupuesto
+                        </DialogTrigger>
+                        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+                          <DialogHeader>
+                            <DialogTitle className="font-heading text-2xl tracking-[-0.04em]">
+                              Generar presupuesto
+                            </DialogTitle>
+                            <DialogDescription>
+                              Registrá la unidad, el taller y el costo inicial. La fecha de
+                              egreso puede cargarse después desde la tabla.
+                            </DialogDescription>
+                          </DialogHeader>
+
+                          <div className="space-y-4">
+                            <div className="grid gap-2">
+                              <Label htmlFor="interno">Interno</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  id="interno"
+                                  value={form.interno}
+                                  onChange={(event) => updateForm("interno", event.target.value)}
+                                  placeholder="Ej. 10342"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="shrink-0"
+                                  onClick={lookupInterno}
+                                  disabled={isLookingUp}
+                                >
+                                  {isLookingUp ? (
+                                    <LoaderCircle className="size-4 animate-spin" />
+                                  ) : (
+                                    <Search className="size-4" />
+                                  )}
+                                  Buscar
+                                </Button>
+                              </div>
+                              {lookupMessage ? (
+                                <p className="text-xs text-muted-foreground">{lookupMessage}</p>
+                              ) : null}
+                            </div>
+
+                            <div className="rounded-lg border border-border/70 bg-secondary/40 p-3">
+                              <div className="grid gap-1">
+                                <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                                  Unidad vinculada
+                                </p>
+                                <p className="font-medium">
+                                  {vehicle
+                                    ? `${vehicle.dominio} · ${vehicle.marca} ${vehicle.modelo}`
+                                    : "Buscá un interno para autocompletar dominio, marca y modelo."}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {vehicle
+                                    ? `KM de base: ${vehicle.km} · Chasis: ${vehicle.chasis || "s/d"}`
+                                    : "Sin datos aún."}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="grid gap-2 sm:col-span-2">
+                                <Label htmlFor="taller">Taller</Label>
+                                <Select
+                                  value={form.tallerId}
+                                  onValueChange={(value) => updateForm("tallerId", value ?? "")}
+                                >
+                                  <SelectTrigger id="taller" className="w-full">
+                                    <SelectValue placeholder="Seleccionar taller">
+                                      {selectedTallerName}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {talleres.map((taller) => (
+                                      <SelectItem key={taller.id} value={taller.id}>
+                                        {taller.nombre}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <Field label="KM informado" htmlFor="km">
+                                <Input
+                                  id="km"
+                                  value={form.km}
+                                  onChange={(event) => updateForm("km", event.target.value)}
+                                  type="number"
+                                  min="0"
+                                />
+                              </Field>
+                              <Field label="Costo ARS" htmlFor="costo">
+                                <Input
+                                  id="costo"
+                                  value={form.costo}
+                                  onChange={(event) => updateForm("costo", event.target.value)}
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                />
+                              </Field>
+                              <Field label="Nro presupuesto" htmlFor="nroPresupuesto">
+                                <Input
+                                  id="nroPresupuesto"
+                                  value={form.nroPresupuesto}
+                                  onChange={(event) =>
+                                    updateForm("nroPresupuesto", event.target.value)
+                                  }
+                                />
+                              </Field>
+                              <Field label="Prioridad" htmlFor="prioridad">
+                                <Select
+                                  value={form.prioridad || "none"}
+                                  onValueChange={(value) =>
+                                    updateForm(
+                                      "prioridad",
+                                      value === "none" ? "" : (value ?? ""),
+                                    )
+                                  }
+                                >
+                                  <SelectTrigger id="prioridad" className="w-full">
+                                    <SelectValue placeholder="Seleccionar prioridad" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">Sin definir</SelectItem>
+                                    {PRIORIDAD_OPTIONS.map((priority) => (
+                                      <SelectItem key={priority} value={priority}>
+                                        {priority}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </Field>
+                              <Field label="Ingreso a taller" htmlFor="fechaIngresoTaller">
+                                <Input
+                                  id="fechaIngresoTaller"
+                                  value={form.fechaIngresoTaller}
+                                  onChange={(event) =>
+                                    updateForm("fechaIngresoTaller", event.target.value)
+                                  }
+                                  type="date"
+                                />
+                              </Field>
+                            </div>
+
+                            <Field label="Detalle" htmlFor="detalle">
+                              <Textarea
+                                id="detalle"
+                                value={form.detalle}
+                                onChange={(event) => updateForm("detalle", event.target.value)}
+                                rows={3}
+                                placeholder="Trabajo presupuestado o reparación a considerar"
+                              />
+                            </Field>
+
+                            <Field label="Observaciones" htmlFor="observaciones">
+                              <Textarea
+                                id="observaciones"
+                                value={form.observaciones}
+                                onChange={(event) =>
+                                  updateForm("observaciones", event.target.value)
+                                }
+                                rows={4}
+                                placeholder="Notas internas, valor de toma o comentarios del caso"
+                              />
+                            </Field>
+
+                            <div className="rounded-lg border border-border/70 bg-background p-3">
+                              <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                                Vista previa de costo
+                              </p>
+                              <div className="mt-2 flex items-end justify-between gap-3">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Neto</p>
+                                  <p className="text-lg font-semibold">
+                                    {form.costo ? formatCurrency(Number(form.costo)) : "$ 0,00"}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xs text-muted-foreground">Con IVA</p>
+                                  <p className="font-heading text-2xl tracking-[-0.04em]">
+                                    {costoPreview ? formatCurrency(costoPreview) : "$ 0,00"}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                className="flex-1"
+                                onClick={createPresupuesto}
+                                disabled={isSubmitting || !vehicle}
+                              >
+                                {isSubmitting ? (
+                                  <LoaderCircle className="size-4 animate-spin" />
+                                ) : null}
+                                Guardar presupuesto
+                              </Button>
+                              <Button type="button" variant="outline" onClick={resetForm}>
+                                Limpiar
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+
+                      <Dialog
+                        open={isExternalCreateDialogOpen}
+                        onOpenChange={openExternalCreateDialog}
+                      >
+                        <DialogTrigger
+                          render={
+                            <Button type="button" variant="outline" className="w-full xl:w-auto" />
+                          }
+                        >
+                            <Plus className="size-4" />
+                            Nuevo presupuesto externo
+                        </DialogTrigger>
+                        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
                         <DialogHeader>
                           <DialogTitle className="font-heading text-2xl tracking-[-0.04em]">
-                            Generar presupuesto
+                            Generar presupuesto externo
                           </DialogTitle>
                           <DialogDescription>
-                            Registrá la unidad, el taller y el costo inicial. La fecha de
-                            egreso puede cargarse después desde la tabla.
+                            Registrá una unidad que no existe en el sistema cargando dominio,
+                            marca, modelo, taller y costo inicial.
                           </DialogDescription>
                         </DialogHeader>
 
                         <div className="space-y-4">
                           <div className="grid gap-2">
-                            <Label htmlFor="interno">Interno</Label>
-                            <div className="flex gap-2">
-                              <Input
-                                id="interno"
-                                value={form.interno}
-                                onChange={(event) => updateForm("interno", event.target.value)}
-                                placeholder="Ej. 10342"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="shrink-0"
-                                onClick={lookupInterno}
-                                disabled={isLookingUp}
-                              >
-                                {isLookingUp ? (
-                                  <LoaderCircle className="size-4 animate-spin" />
-                                ) : (
-                                  <Search className="size-4" />
-                                )}
-                                Buscar
-                              </Button>
-                            </div>
-                            {lookupMessage ? (
-                              <p className="text-xs text-muted-foreground">{lookupMessage}</p>
-                            ) : null}
-                          </div>
-
-                          <div className="rounded-lg border border-border/70 bg-secondary/40 p-3">
-                            <div className="grid gap-1">
-                              <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-                                Unidad vinculada
-                              </p>
-                              <p className="font-medium">
-                                {vehicle
-                                  ? `${vehicle.dominio} · ${vehicle.marca} ${vehicle.modelo}`
-                                  : "Buscá un interno para autocompletar dominio, marca y modelo."}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {vehicle
-                                  ? `KM de base: ${vehicle.km} · Chasis: ${vehicle.chasis || "s/d"}`
-                                  : "Sin datos aún."}
-                              </p>
-                            </div>
+                            <Label htmlFor="externo-dominio">Dominio</Label>
+                            <Input
+                              id="externo-dominio"
+                              value={externalForm.dominio}
+                              onChange={(event) =>
+                                updateExternalForm("dominio", event.target.value.toUpperCase())
+                              }
+                              placeholder="Ej. AA123BB"
+                            />
                           </div>
 
                           <div className="grid gap-3 sm:grid-cols-2">
+                            <Field label="Marca" htmlFor="externo-marca">
+                              <Input
+                                id="externo-marca"
+                                list="externo-marcas"
+                                value={externalForm.marcaNombre}
+                                onChange={(event) =>
+                                  handleExternalBrandInput(event.target.value)
+                                }
+                                placeholder={
+                                  isLoadingExternalCatalog
+                                    ? "Cargando marcas..."
+                                    : "Escribí o elegí una marca"
+                                }
+                                autoComplete="off"
+                              />
+                              <datalist id="externo-marcas">
+                                {externalBrands.map((marca) => (
+                                  <option key={marca.codigo} value={marca.nombre} />
+                                ))}
+                              </datalist>
+                            </Field>
+
+                            <Field label="Modelo" htmlFor="externo-modelo">
+                              <Input
+                                id="externo-modelo"
+                                list="externo-modelos"
+                                value={externalForm.modeloNombre}
+                                onChange={(event) =>
+                                  handleExternalModelInput(event.target.value)
+                                }
+                                placeholder={
+                                  !externalForm.marcaCodigo
+                                    ? "Elegí una marca primero"
+                                    : isLoadingExternalCatalog
+                                      ? "Cargando modelos..."
+                                      : "Escribí o elegí un modelo"
+                                }
+                                autoComplete="off"
+                                disabled={!externalForm.marcaCodigo || isLoadingExternalCatalog}
+                              />
+                              <datalist id="externo-modelos">
+                                {externalModels.map((modelo) => (
+                                  <option key={modelo.codigo} value={modelo.nombre} />
+                                ))}
+                              </datalist>
+                            </Field>
+
                             <div className="grid gap-2 sm:col-span-2">
-                              <Label htmlFor="taller">Taller</Label>
+                              <Label htmlFor="externo-taller">Taller</Label>
                               <Select
-                                value={form.tallerId}
-                                onValueChange={(value) => updateForm("tallerId", value ?? "")}
+                                value={externalForm.tallerId}
+                                onValueChange={(value) =>
+                                  updateExternalForm("tallerId", value ?? "")
+                                }
                               >
-                                <SelectTrigger id="taller" className="w-full">
-                                  <SelectValue placeholder="Seleccionar taller" />
+                                <SelectTrigger id="externo-taller" className="w-full">
+                                  <SelectValue placeholder="Seleccionar taller">
+                                    {selectedExternalTallerName}
+                                  </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                   {talleres.map((taller) => (
@@ -1197,45 +1636,52 @@ export function DashboardShell({
                               </Select>
                             </div>
 
-                            <Field label="KM informado" htmlFor="km">
+                            <Field label="KM informado" htmlFor="externo-km">
                               <Input
-                                id="km"
-                                value={form.km}
-                                onChange={(event) => updateForm("km", event.target.value)}
+                                id="externo-km"
+                                value={externalForm.km}
+                                onChange={(event) =>
+                                  updateExternalForm("km", event.target.value)
+                                }
                                 type="number"
                                 min="0"
                               />
                             </Field>
-                            <Field label="Costo ARS" htmlFor="costo">
+                            <Field label="Costo ARS" htmlFor="externo-costo">
                               <Input
-                                id="costo"
-                                value={form.costo}
-                                onChange={(event) => updateForm("costo", event.target.value)}
+                                id="externo-costo"
+                                value={externalForm.costo}
+                                onChange={(event) =>
+                                  updateExternalForm("costo", event.target.value)
+                                }
                                 type="number"
                                 min="0"
                                 step="0.01"
                               />
                             </Field>
-                            <Field label="Nro presupuesto" htmlFor="nroPresupuesto">
+                            <Field
+                              label="Nro presupuesto"
+                              htmlFor="externo-nroPresupuesto"
+                            >
                               <Input
-                                id="nroPresupuesto"
-                                value={form.nroPresupuesto}
+                                id="externo-nroPresupuesto"
+                                value={externalForm.nroPresupuesto}
                                 onChange={(event) =>
-                                  updateForm("nroPresupuesto", event.target.value)
+                                  updateExternalForm("nroPresupuesto", event.target.value)
                                 }
                               />
                             </Field>
-                            <Field label="Prioridad" htmlFor="prioridad">
+                            <Field label="Prioridad" htmlFor="externo-prioridad">
                               <Select
-                                value={form.prioridad || "none"}
+                                value={externalForm.prioridad || "none"}
                                 onValueChange={(value) =>
-                                  updateForm(
+                                  updateExternalForm(
                                     "prioridad",
                                     value === "none" ? "" : (value ?? ""),
                                   )
                                 }
                               >
-                                <SelectTrigger id="prioridad" className="w-full">
+                                <SelectTrigger id="externo-prioridad" className="w-full">
                                   <SelectValue placeholder="Seleccionar prioridad" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1248,34 +1694,42 @@ export function DashboardShell({
                                 </SelectContent>
                               </Select>
                             </Field>
-                            <Field label="Ingreso a taller" htmlFor="fechaIngresoTaller">
+                            <Field
+                              label="Ingreso a taller"
+                              htmlFor="externo-fechaIngresoTaller"
+                            >
                               <Input
-                                id="fechaIngresoTaller"
-                                value={form.fechaIngresoTaller}
+                                id="externo-fechaIngresoTaller"
+                                value={externalForm.fechaIngresoTaller}
                                 onChange={(event) =>
-                                  updateForm("fechaIngresoTaller", event.target.value)
+                                  updateExternalForm(
+                                    "fechaIngresoTaller",
+                                    event.target.value,
+                                  )
                                 }
                                 type="date"
                               />
                             </Field>
                           </div>
 
-                          <Field label="Detalle" htmlFor="detalle">
+                          <Field label="Detalle" htmlFor="externo-detalle">
                             <Textarea
-                              id="detalle"
-                              value={form.detalle}
-                              onChange={(event) => updateForm("detalle", event.target.value)}
+                              id="externo-detalle"
+                              value={externalForm.detalle}
+                              onChange={(event) =>
+                                updateExternalForm("detalle", event.target.value)
+                              }
                               rows={3}
                               placeholder="Trabajo presupuestado o reparación a considerar"
                             />
                           </Field>
 
-                          <Field label="Observaciones" htmlFor="observaciones">
+                          <Field label="Observaciones" htmlFor="externo-observaciones">
                             <Textarea
-                              id="observaciones"
-                              value={form.observaciones}
+                              id="externo-observaciones"
+                              value={externalForm.observaciones}
                               onChange={(event) =>
-                                updateForm("observaciones", event.target.value)
+                                updateExternalForm("observaciones", event.target.value)
                               }
                               rows={4}
                               placeholder="Notas internas, valor de toma o comentarios del caso"
@@ -1290,13 +1744,19 @@ export function DashboardShell({
                               <div>
                                 <p className="text-xs text-muted-foreground">Neto</p>
                                 <p className="text-lg font-semibold">
-                                  {form.costo ? formatCurrency(Number(form.costo)) : "$ 0,00"}
+                                  {externalForm.costo
+                                    ? formatCurrency(Number(externalForm.costo))
+                                    : "$ 0,00"}
                                 </p>
                               </div>
                               <div className="text-right">
                                 <p className="text-xs text-muted-foreground">Con IVA</p>
                                 <p className="font-heading text-2xl tracking-[-0.04em]">
-                                  {costoPreview ? formatCurrency(costoPreview) : "$ 0,00"}
+                                  {externalForm.costo
+                                    ? formatCurrency(
+                                        calculateCostoConIva(Number(externalForm.costo)),
+                                      )
+                                    : "$ 0,00"}
                                 </p>
                               </div>
                             </div>
@@ -1306,21 +1766,32 @@ export function DashboardShell({
                             <Button
                               type="button"
                               className="flex-1"
-                              onClick={createPresupuesto}
-                              disabled={isSubmitting || !vehicle}
+                              onClick={createExternalPresupuesto}
+                              disabled={
+                                isSubmitting ||
+                                !externalForm.dominio.trim() ||
+                                !externalForm.marcaCodigo ||
+                                !externalForm.modeloCodigo ||
+                                !externalForm.tallerId
+                              }
                             >
                               {isSubmitting ? (
                                 <LoaderCircle className="size-4 animate-spin" />
                               ) : null}
-                              Guardar presupuesto
+                              Guardar presupuesto externo
                             </Button>
-                            <Button type="button" variant="outline" onClick={resetForm}>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={resetExternalForm}
+                            >
                               Limpiar
                             </Button>
                           </div>
                         </div>
-                      </DialogContent>
-                    </Dialog>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
 
                     <div className="grid w-full gap-2 md:grid-cols-4 xl:w-[920px]">
                       <Input
@@ -1413,7 +1884,9 @@ export function DashboardShell({
                               </Badge>
                             </TableCell>
                             <TableCell className="font-medium">{presupuesto.tallerNombre}</TableCell>
-                            <TableCell>{presupuesto.interno}</TableCell>
+                            <TableCell>
+                              {presupuesto.esExterno ? "Externo" : presupuesto.interno}
+                            </TableCell>
                             <TableCell>{presupuesto.dominio}</TableCell>
                             <TableCell>
                               <div className="min-w-[180px]">
@@ -1586,7 +2059,7 @@ export function DashboardShell({
                   </DialogTitle>
                   <DialogDescription>
                     {detailsPresupuesto
-                      ? `Interno ${detailsPresupuesto.interno} · Taller ${detailsPresupuesto.tallerNombre}`
+                      ? `${detailsPresupuesto.esExterno ? "Unidad externa" : `Interno ${detailsPresupuesto.interno}`} · Taller ${detailsPresupuesto.tallerNombre}`
                       : "Detalle ampliado del presupuesto."}
                   </DialogDescription>
                 </DialogHeader>

@@ -43,6 +43,7 @@ function serializeTaller(taller: {
 function serializePresupuesto(presupuesto: {
   _id: { toString(): string };
   interno: string;
+  esExterno?: boolean;
   dominio: string;
   marca: string;
   modelo: string;
@@ -64,6 +65,7 @@ function serializePresupuesto(presupuesto: {
   return {
     id: presupuesto._id.toString(),
     interno: presupuesto.interno,
+    esExterno: Boolean(presupuesto.esExterno),
     dominio: presupuesto.dominio,
     marca: presupuesto.marca,
     modelo: presupuesto.modelo,
@@ -199,6 +201,7 @@ export async function getPresupuestos(filters: PresupuestoFilters = {}) {
 
 export async function createPresupuestoRecord(input: {
   interno: string;
+  esExterno: boolean;
   dominio: string;
   marca: string;
   modelo: string;

@@ -6,8 +6,13 @@ const presupuestoSchema = new Schema(
   {
     interno: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
+    },
+    esExterno: {
+      type: Boolean,
+      required: true,
+      default: false,
     },
     dominio: {
       type: String,

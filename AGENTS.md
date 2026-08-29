@@ -124,6 +124,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - El lookup de unidades debe partir de `siac.dbo.stoauto`, filtrando `sa_tipo = 10` y usando `sa_codigo` como `interno`.
 - La marca y la versión exacta de la unidad deben resolverse con `siac.dbo.auto` usando `sa_marca = au_marca` y `sa_auto = au_codigo`.
 - El resto de los datos operativos de la unidad debe completarse desde `siac.dbo.anexusa` uniendo `aus_tipo = sa_tipo` y `aus_codigo = sa_codigo`.
+- La conexión compartida a SQL Server debe poder recuperarse si el pool inicial falla o queda desconectado, sin exigir reinicio manual de la app.
 - El catálogo de talleres no tiene seed automático y queda bajo carga manual del usuario.
 - La aplicación exige autenticación antes de permitir acceso a dashboard, presupuestos, configuración o APIs internas.
 - La autenticación se delega a un sistema externo `Auth Central`.
@@ -144,7 +145,8 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
   - `activo`
   - `tipoTrabajo` opcional
 - `presupuesto`
-  - `interno`
+  - `interno` opcional para unidades externas
+  - `esExterno`
   - `dominio`
   - `marca`
   - `modelo`
@@ -171,6 +173,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 ## Endpoints actuales
 
 - `GET /api/unidades?interno=...`
+- `GET /api/unidades/catalogo`
 - `GET /api/presupuestos`
 - `POST /api/presupuestos`
 - `PATCH /api/presupuestos/[id]`
@@ -210,6 +213,15 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
   - `Media`
   - `Baja`
 - La generación de presupuestos se realiza desde un `dialog` de alta.
+- Deben coexistir dos altas de presupuesto:
+  - una para unidades del sistema buscando por `interno`
+  - otra para unidades externas sin `interno`
+- Al cerrar cualquiera de los modales de alta, el formulario debe resetearse completo para no conservar datos de la operación anterior.
+- Los selects de taller dentro de formularios deben mostrar siempre `taller.nombre` como etiqueta visible, nunca el `id` persistido.
+- En presupuestos externos, la marca y el modelo deben seleccionarse desde el catálogo SQL del sistema y no como texto libre.
+- Marca y modelo de presupuestos externos deben resolverse con autocomplete sobre el catálogo SQL, mostrando siempre el nombre visible y nunca el código técnico.
+- El catálogo de modelos para presupuestos externos debe salir de `siac.dbo.auto`, vinculando `au_marca = mar_codigo`, guardando `au_codigo` y mostrando `au_nombre`.
+- Si la carga del catálogo externo se recupera correctamente luego de un fallo previo, el mensaje global de error no debe persistir visible.
 - La fecha de egreso puede quedar vacía al crear y luego completarse desde la tabla de seguimiento.
 - Observaciones y detalle se visualizan completos mediante un `dialog` disparado por `Ver más`.
 - La columna `Observaciones` en la tabla no muestra texto resumido: solo expone el botón `Ver más`.
@@ -224,7 +236,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - Al hacer click en un card de estado del dashboard, la app debe abrir `Presupuestos` con ese estado aplicado como filtro.
 - Indicadores implementados:
   - distribución mensual de presupuestos por estado en gráfico `pie`
-  - gráfico combinado anualizado por taller para aprobados, con barras de cantidad y línea de monto total
+  - gráfico combinado anualizado de aprobados desagregado por `mes + taller`, con barras de cantidad y línea de monto total
   - distribución mensual de presupuestos por marca en gráfico `radar`
   - distribución mensual de presupuestos por taller en gráfico `pie`
 

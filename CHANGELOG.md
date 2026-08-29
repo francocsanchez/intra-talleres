@@ -2,6 +2,19 @@
 
 ## 2026-08-29
 
+- Se corrigieron los selects de taller en los modales de alta para que, al elegir una opción, se siga mostrando el nombre del taller y no el `id` interno de MongoDB.
+- Al cerrar los modales de `Nuevo presupuesto` y `Nuevo presupuesto externo` ahora se limpian todos los datos cargados para que la próxima apertura arranque en blanco.
+- Se robusteció la conexión compartida a SQL Server para reiniciar el pool si falla la conexión o si queda desconectado, evitando errores persistentes en búsquedas de internos y catálogos luego de un primer fallo.
+- Se corrigió la carga del catálogo de marcas y modelos externos para limpiar el mensaje de error global cuando una consulta posterior responde correctamente.
+- Se ajustó la consulta de modelos para presupuestos externos para que lea desde `siac.dbo.auto`, vinculando `au_marca = mar_codigo`, usando `au_codigo` como identificador y mostrando `au_nombre`.
+- Se reemplazaron los selects de marca y modelo en presupuestos externos por campos con autocomplete nativo para hacer más ágil la búsqueda dentro de catálogos largos.
+- Se corrigió el alta de presupuestos externos para que el selector de marca y modelo conserve la etiqueta visible y no exponga el código interno en el trigger.
+- Se reforzó la consulta SQL del catálogo de modelos casteando `au_nombre` antes de deduplicar, evitando errores al seleccionar una marca y cargar sus modelos.
+- Se agregó un flujo de `presupuesto externo` con botón dedicado junto a `Nuevo presupuesto`, pensado para unidades que no existen en el sistema y por lo tanto no tienen `interno`.
+- Los presupuestos externos permiten cargar dominio, taller, km, costo y observaciones, resolviendo marca y modelo desde el catálogo SQL del sistema para evitar carga manual libre.
+- Se incorporó el endpoint `GET /api/unidades/catalogo` para consultar marcas y modelos desde SQL Server y se adaptó `POST /api/presupuestos` para aceptar altas internas y externas.
+- Los presupuestos externos ahora se distinguen en la tabla y en el detalle mostrando `Externo` o `Unidad externa` en lugar de un interno vacío.
+- Se corrigió el gráfico `Aprobados anualizados por taller` para desagregar los aprobados por `mes + taller`, evitando que cada taller consolide todo el año en una única barra.
 - Se compactaron los cards de métricas del dashboard para reducir su altura visual y hacer más densa la primera fila de indicadores.
 - Los indicadores del dashboard ahora funcionan como accesos rápidos a `Presupuestos`: `Total` abre sin filtro y cada estado abre la vista filtrada por el estado seleccionado.
 - Se reordenó la grilla del dashboard a una composición `1 + 3`: el gráfico anualizado queda arriba a todo el ancho y los tres gráficos mensuales quedan alineados debajo.

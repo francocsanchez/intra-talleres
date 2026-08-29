@@ -1,6 +1,10 @@
 import sql from "mssql";
 
-import type { UnidadDTO } from "@/lib/types";
+import type {
+  UnidadDTO,
+  UnidadMarcaOptionDTO,
+  UnidadModeloOptionDTO,
+} from "@/lib/types";
 
 declare global {
   var sqlPoolPromise: Promise<sql.ConnectionPool> | undefined;
@@ -25,10 +29,31 @@ const sqlConfig: sql.config = {
 
 async function getSqlPool() {
   if (!global.sqlPoolPromise) {
-    global.sqlPoolPromise = sql.connect(sqlConfig);
+    global.sqlPoolPromise = sql.connect(sqlConfig).then((pool) => {
+      pool.on("error", () => {
+        global.sqlPoolPromise = undefined;
+      });
+
+      return pool;
+    }).catch((error) => {
+      global.sqlPoolPromise = undefined;
+      throw error;
+    });
   }
 
-  return global.sqlPoolPromise;
+  try {
+    const pool = await global.sqlPoolPromise;
+
+    if (!pool.connected) {
+      global.sqlPoolPromise = undefined;
+      return getSqlPool();
+    }
+
+    return pool;
+  } catch (error) {
+    global.sqlPoolPromise = undefined;
+    throw error;
+  }
 }
 
 export async function fetchUnidadByInterno(interno: string) {
@@ -78,4 +103,96 @@ export async function fetchUnidadByInterno(interno: string) {
     km: Number(row.km || 0),
     chasis: row.chasis?.trim() || "",
   } satisfies UnidadDTO;
+}
+
+export async function fetchUnidadMarcas() {
+  const pool = await getSqlPool();
+  const result = await pool.query<{
+    codigo: string;
+    nombre: string | null;
+  }>(`
+    SELECT DISTINCT
+      CAST(m.mar_codigo AS VARCHAR(32)) AS codigo,
+      LTRIM(RTRIM(m.mar_nombre)) AS nombre
+    FROM siac.dbo.auto a
+    INNER JOIN siac.dbo.marca m
+      ON m.mar_codigo = a.au_marca
+    WHERE LTRIM(RTRIM(ISNULL(m.mar_nombre, ''))) <> ''
+    ORDER BY nombre
+  `);
+
+  return result.recordset.map((row) => ({
+    codigo: row.codigo,
+    nombre: row.nombre?.trim() || "Sin marca",
+  })) satisfies UnidadMarcaOptionDTO[];
+}
+
+export async function fetchUnidadModelosByMarca(marcaCodigo: string) {
+  const pool = await getSqlPool();
+  const result = await pool
+    .request()
+    .input("marcaCodigo", sql.VarChar(32), marcaCodigo)
+    .query<{
+      codigo: string;
+      nombre: string | null;
+      marcaCodigo: string;
+    }>(`
+      SELECT
+        modelos.codigo,
+        modelos.nombre,
+        modelos.marcaCodigo
+      FROM (
+        SELECT DISTINCT
+          CAST(a.au_codigo AS VARCHAR(32)) AS codigo,
+          LTRIM(RTRIM(CAST(a.au_nombre AS VARCHAR(255)))) AS nombre,
+          CAST(a.au_marca AS VARCHAR(32)) AS marcaCodigo
+        FROM siac.dbo.auto a
+        INNER JOIN siac.dbo.marca m
+          ON m.mar_codigo = a.au_marca
+        WHERE CAST(m.mar_codigo AS VARCHAR(32)) = @marcaCodigo
+          AND LTRIM(RTRIM(ISNULL(CAST(a.au_nombre AS VARCHAR(255)), ''))) <> ''
+      ) modelos
+      ORDER BY modelos.nombre
+    `);
+
+  return result.recordset.map((row) => ({
+    codigo: row.codigo,
+    nombre: row.nombre?.trim() || "Sin modelo",
+    marcaCodigo: row.marcaCodigo,
+  })) satisfies UnidadModeloOptionDTO[];
+}
+
+export async function fetchUnidadModeloByMarcaAndCodigo(
+  marcaCodigo: string,
+  modeloCodigo: string,
+) {
+  const pool = await getSqlPool();
+  const result = await pool
+    .request()
+    .input("marcaCodigo", sql.VarChar(32), marcaCodigo)
+    .input("modeloCodigo", sql.VarChar(32), modeloCodigo)
+    .query<{
+      marca: string | null;
+      modelo: string | null;
+    }>(`
+      SELECT TOP 1
+        LTRIM(RTRIM(m.mar_nombre)) AS marca,
+        LTRIM(RTRIM(a.au_nombre)) AS modelo
+      FROM siac.dbo.auto a
+      INNER JOIN siac.dbo.marca m
+        ON m.mar_codigo = a.au_marca
+      WHERE CAST(a.au_marca AS VARCHAR(32)) = @marcaCodigo
+        AND CAST(a.au_codigo AS VARCHAR(32)) = @modeloCodigo
+    `);
+
+  if (!result.recordset[0]) {
+    return null;
+  }
+
+  const row = result.recordset[0];
+
+  return {
+    marca: row.marca?.trim() || "",
+    modelo: row.modelo?.trim() || "",
+  };
 }

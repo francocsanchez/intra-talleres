@@ -37,9 +37,21 @@ export type UnidadDTO = {
   chasis?: string;
 };
 
+export type UnidadMarcaOptionDTO = {
+  codigo: string;
+  nombre: string;
+};
+
+export type UnidadModeloOptionDTO = {
+  codigo: string;
+  nombre: string;
+  marcaCodigo: string;
+};
+
 export type PresupuestoDTO = {
   id: string;
   interno: string;
+  esExterno: boolean;
   dominio: string;
   marca: string;
   modelo: string;
