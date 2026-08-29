@@ -45,18 +45,23 @@ export async function fetchUnidadByInterno(interno: string) {
       chasis: string | null;
     }>(`
       SELECT TOP 1
-        CAST(au.aus_codigo AS VARCHAR(32)) AS interno,
-        LTRIM(RTRIM(au.aus_dominio)) AS dominio,
+        CAST(sa.sa_codigo AS VARCHAR(32)) AS interno,
+        LTRIM(RTRIM(anx.aus_dominio)) AS dominio,
         LTRIM(RTRIM(m.mar_nombre)) AS marca,
         LTRIM(RTRIM(a.au_nombre)) AS modelo,
-        au.aus_km AS km,
-        LTRIM(RTRIM(au.aus_chasis)) AS chasis
-      FROM siac.dbo.anexusa au
+        anx.aus_km AS km,
+        LTRIM(RTRIM(anx.aus_chasis)) AS chasis
+      FROM siac.dbo.stoauto sa
       LEFT JOIN siac.dbo.auto a
-        ON a.au_codigo = au.aus_auto
+        ON a.au_marca = sa.sa_marca
+       AND a.au_codigo = sa.sa_auto
       LEFT JOIN siac.dbo.marca m
-        ON m.mar_codigo = a.au_marca
-      WHERE CAST(au.aus_codigo AS VARCHAR(32)) = @interno
+        ON m.mar_codigo = sa.sa_marca
+      LEFT JOIN siac.dbo.anexusa anx
+        ON anx.aus_tipo = sa.sa_tipo
+       AND anx.aus_codigo = sa.sa_codigo
+      WHERE sa.sa_tipo = 10
+        AND CAST(sa.sa_codigo AS VARCHAR(32)) = @interno
     `);
 
   if (!result.recordset[0]) {

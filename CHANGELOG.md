@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-08-29
+
+- Se cambió el lookup de unidades por `interno` en SQL Server para que parta de `siac.dbo.stoauto`, filtrando `sa_tipo = 10` y usando `sa_codigo` como identificador operativo.
+- La marca y la versión exacta ahora se resuelven desde `siac.dbo.auto` mediante `sa_marca = au_marca` y `sa_auto = au_codigo`, mientras que dominio, km y chasis se completan desde `siac.dbo.anexusa` con `aus_tipo = sa_tipo` y `aus_codigo = sa_codigo`.
+- Se rediseñó el navbar principal para llevarlo a una barra horizontal única, más limpia y compacta, con identidad visual a la izquierda, navegación en formato cápsula y bloque de perfil alineado a la derecha.
+- Se eliminó la tarjeta separada de `Sesión activa` y la navegación tipo cards, reemplazándolas por un encabezado continuo más cercano a un layout ejecutivo.
+- El botón de cierre de sesión pasó a ser reutilizable para permitir variantes visuales acordes al nuevo navbar sin modificar la mecánica de logout con `POST`.
+- Se refinó el navbar para que respete mejor la referencia visual objetivo: marca y subtítulo a la izquierda, rail central extendido para tabs, tarjeta de perfil independiente y botón `Salir` desacoplado al extremo derecho.
+- Se reemplazó la aproximación previa del navbar por una estructura y hoja de estilos dedicadas, alineadas casi literal al HTML de referencia para calcar proporciones, radios, espaciados y jerarquía visual.
+- Se integró el navbar al layout superior eliminando el padding exterior del shell, la sombra y el borde redondeado del contenedor principal para que no se perciba como tarjeta flotante.
+- Se eliminaron las cápsulas tipo card del rail interno, del perfil y del botón `Salir` para que el conjunto se lea más como navbar lineal y menos como colección de tarjetas.
+- Se adoptó `Roboto` como tipografía base de la aplicación y se realineó el navbar con la copia HTML/CSS provista por el usuario, usando métricas, alturas y pesos más cercanos a esa referencia.
+
 ## 2026-08-28
 
 - Se separó la URL interna de Auth Central (`CENTRAL_AUTH_URL`) de la URL pública de navegador (`CENTRAL_AUTH_PUBLIC_URL`) para soportar despliegue en producción con stacks Docker distintos y red compartida.

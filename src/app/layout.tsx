@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Mono, Roboto } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const spaceGrotesk = Space_Grotesk({
+const roboto = Roboto({
   subsets: ["latin"],
   variable: "--font-sans",
+  weight: ["400", "500", "700"],
 });
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={cn(
         "h-full",
         "antialiased",
-        spaceGrotesk.variable,
+        roboto.variable,
         ibmPlexMono.variable,
         "font-sans",
       )}

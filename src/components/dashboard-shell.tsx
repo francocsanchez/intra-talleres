@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import type { ReactNode } from "react";
 import {
   BarChart3,
+  ChevronDown,
   ClipboardList,
   FileText,
   LoaderCircle,
@@ -14,6 +16,7 @@ import {
   ShieldCheck,
   Trash2,
   TriangleAlert,
+  UserRound,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +68,6 @@ import type {
   TallerDTO,
   UnidadDTO,
 } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 type DashboardShellProps = {
   initialPresupuestos: PresupuestoDTO[];
@@ -680,76 +682,87 @@ export function DashboardShell({
     },
   ];
 
+  const currentNavigationItem =
+    navigationItems.find((item) => item.id === activeView) ?? navigationItems[0];
+  const profileLabel = currentUserName || currentUserEmail || "Mi perfil";
+  const roleLabel = (currentUserRole || "admin").toLowerCase();
+
   return (
     <main className="min-h-screen bg-background">
-      <div className="mx-auto flex w-full max-w-[1720px] flex-col gap-4 px-3 py-3 md:px-4 lg:px-5">
-        <nav className="rounded-xl border border-border/70 bg-background/95 p-2 shadow-none backdrop-blur">
-          <div className="mb-2 flex flex-col gap-2 rounded-lg border border-border/70 bg-secondary/25 px-3 py-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-                Sesión activa
-              </p>
-              <p className="text-sm font-medium">
-                {currentUserName || "Administrador"} · {currentUserEmail}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Rol para esta app: {currentUserRole || "Sin rol"}
-              </p>
-            </div>
-            <SignOutButton action={logoutUrl} />
-          </div>
-          <div className="grid gap-2 md:grid-cols-3">
-            {navigationItems.map((item) => {
-              const Icon = item.icon;
-              const active = activeView === item.id;
+      <div className="mx-auto flex w-full max-w-[1720px] flex-col gap-4 px-0 pb-3 md:pb-4 lg:pb-5">
+        <header className="navbar">
+          <div className="navbar__start">
+            <Link className="navbar__brand" href="/" aria-label="Intra Talleres, inicio">
+              <span className="navbar__mark">IT</span>
+              <span className="navbar__brand-title">Intra Talleres</span>
+            </Link>
 
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setActiveView(item.id)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
-                    active
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border/70 bg-secondary/35 text-foreground hover:bg-secondary/60",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "rounded-md border p-2",
-                      active
-                        ? "border-white/20 bg-white/10"
-                        : "border-border/70 bg-background",
-                    )}
+            <nav aria-label="Navegacion principal" className="navbar__nav">
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const active = activeView === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveView(item.id)}
+                    className="navbar__link"
+                    data-active={active}
+                    aria-current={active ? "page" : undefined}
                   >
-                    <Icon className="size-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold">{item.label}</span>
-                    <span
-                      className={cn(
-                        "block text-xs",
-                        active ? "text-white/70" : "text-muted-foreground",
-                      )}
-                    >
-                      {item.description}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
+                    <Icon className="navbar__icon" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
           </div>
-        </nav>
+
+          <div className="navbar__end">
+            <details className="navbar__dropdown navbar__dropdown--profile">
+              <summary className="navbar__profile-trigger">
+                <UserRound className="navbar__icon" />
+                <span>Mi Perfil</span>
+                <ChevronDown className="navbar__chevron" />
+              </summary>
+
+              <div
+                className="navbar__menu navbar__menu--profile"
+                role="menu"
+                aria-label="Mi perfil"
+              >
+                <div className="navbar__session-copy navbar__session-copy--menu">
+                  <strong>{profileLabel}</strong>
+                  <span>
+                    {roleLabel} · {currentUserEmail}
+                  </span>
+                </div>
+                <div className="navbar__menu-link" role="menuitem">
+                  Vista actual: {currentNavigationItem.label}
+                </div>
+              </div>
+            </details>
+
+            <SignOutButton
+              action={logoutUrl}
+              variant="ghost"
+              size="sm"
+              className="navbar__logout"
+              iconClassName="size-4"
+              label="Salir"
+            />
+          </div>
+        </header>
 
         {feedback ? (
-          <div className="rounded-lg border border-border/80 bg-secondary/60 px-3 py-2 text-sm text-foreground">
+          <div className="mx-3 rounded-lg border border-border/80 bg-secondary/60 px-3 py-2 text-sm text-foreground md:mx-4 lg:mx-5">
             {feedback}
           </div>
         ) : null}
 
         {activeView === "dashboard" ? (
-          <section className="grid gap-4">
+          <section className="grid gap-4 px-3 md:px-4 lg:px-5">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <MetricTile
                 icon={ClipboardList}
@@ -822,7 +835,7 @@ export function DashboardShell({
         ) : null}
 
         {activeView === "presupuestos" ? (
-          <section className="grid gap-4">
+          <section className="grid gap-4 px-3 md:px-4 lg:px-5">
             <Card className="border-border/70 shadow-none">
               <CardHeader className="border-b border-border/70 pb-3">
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -1362,7 +1375,7 @@ export function DashboardShell({
         ) : null}
 
         {activeView === "configuracion" ? (
-          <section className="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
+          <section className="grid gap-4 px-3 md:px-4 lg:px-5 xl:grid-cols-[420px_minmax(0,1fr)]">
             <Card className="border-border/70 shadow-none">
               <CardHeader className="border-b border-border/70 pb-3">
                 <CardTitle className="font-heading text-2xl tracking-[-0.04em]">

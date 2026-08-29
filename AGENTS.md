@@ -121,6 +121,9 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - El MVP implementado unifica alta y seguimiento de presupuestos en una sola pantalla principal.
 - La persistencia del sistema se guarda en MongoDB local usando la base `intra_talleres`.
 - La consulta de unidades por `interno` se realiza contra SQL Server en modo solo lectura.
+- El lookup de unidades debe partir de `siac.dbo.stoauto`, filtrando `sa_tipo = 10` y usando `sa_codigo` como `interno`.
+- La marca y la versión exacta de la unidad deben resolverse con `siac.dbo.auto` usando `sa_marca = au_marca` y `sa_auto = au_codigo`.
+- El resto de los datos operativos de la unidad debe completarse desde `siac.dbo.anexusa` uniendo `aus_tipo = sa_tipo` y `aus_codigo = sa_codigo`.
 - El catálogo de talleres no tiene seed automático y queda bajo carga manual del usuario.
 - La aplicación exige autenticación antes de permitir acceso a dashboard, presupuestos, configuración o APIs internas.
 - La autenticación se delega a un sistema externo `Auth Central`.
@@ -189,6 +192,12 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
   - tabla consolidada
 - `Configuración`
   - CRUD de talleres
+- El navbar principal usa una barra horizontal compacta con marca `Intra Talleres` a la izquierda, tabs visuales para las tres vistas y bloque de perfil con salida a la derecha.
+- La composición del navbar debe mantener cuatro zonas visuales claras: marca, subtítulo, rail central de navegación, tarjeta de perfil y acción `Salir` separada.
+- Para iteraciones del navbar no alcanza una aproximación visual: se prioriza replicar la anatomía exacta de la referencia mediante clases específicas y ajustes finos de proporción.
+- El contenedor exterior del navbar debe comportarse como una franja superior integrada, sin sombra ni marco redondeado cuando la referencia objetivo no sea una card.
+- La tipografía base vigente del proyecto es `Roboto`; cuando el usuario comparta una referencia cerrada de navbar, se deben respetar sus métricas CSS antes que reinterpretarlas.
+- Dentro del navbar deben evitarse contenedores secundarios con aspecto de card salvo en el item activo; la navegación base debe sentirse lineal y liviana.
 
 ## Reglas UI actuales
 
