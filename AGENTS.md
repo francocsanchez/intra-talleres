@@ -237,7 +237,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - Indicadores implementados:
   - distribución mensual de presupuestos por estado en gráfico `pie`
   - gráfico combinado anualizado de aprobados con eje por mes, barras agrupadas por taller y línea de monto total mensual
-  - distribución mensual de presupuestos por marca en gráfico `radar`
+  - distribución mensual de presupuestos por marca en gráfico `radar` con escala común entre ejes
   - distribución mensual de presupuestos por taller en gráfico `pie`
 
 ## Reglas de catalogo de talleres

@@ -550,6 +550,7 @@ export function DashboardShell({
       "Sin marca",
     );
     const radarSource = marcasDelMes.length ? marcasDelMes : [["Sin datos", 1] as const];
+    const radarMaxValue = Math.max(...radarSource.map(([, count]) => count), 1);
     const marcasOption: DashboardChartOption = {
       color: ["#171717"],
       legend: {
@@ -562,9 +563,9 @@ export function DashboardShell({
         trigger: "item",
       },
       radar: {
-        indicator: radarSource.map(([label, count]) => ({
+        indicator: radarSource.map(([label]) => ({
           name: label,
-          max: Math.max(count, 1),
+          max: radarMaxValue,
         })),
         radius: "63%",
         splitNumber: 4,
