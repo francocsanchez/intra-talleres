@@ -2,6 +2,7 @@
 
 ## 2026-08-29
 
+- Se rearmó el gráfico `Aprobados anualizados por taller` para consolidar todos los talleres dentro de cada mes, con barras agrupadas por taller y una línea única de monto total mensual aprobado.
 - Se corrigieron los selects de taller en los modales de alta para que, al elegir una opción, se siga mostrando el nombre del taller y no el `id` interno de MongoDB.
 - Al cerrar los modales de `Nuevo presupuesto` y `Nuevo presupuesto externo` ahora se limpian todos los datos cargados para que la próxima apertura arranque en blanco.
 - Se robusteció la conexión compartida a SQL Server para reiniciar el pool si falla la conexión o si queda desconectado, evitando errores persistentes en búsquedas de internos y catálogos luego de un primer fallo.

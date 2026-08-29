@@ -442,9 +442,38 @@ export function DashboardShell({
 
       return a.taller.localeCompare(b.taller, "es");
     });
-    const approvedAnnualWorkshopLabels = approvedAnnualWorkshopBuckets.map(
-      (item) => `${formatMonthFilterLabel(item.month)} · ${item.taller}`,
+    const approvedAnnualMonths = Array.from(
+      new Set(approvedAnnualWorkshopBuckets.map((item) => item.month)),
     );
+    const approvedAnnualWorkshops = Array.from(
+      new Set(approvedAnnualWorkshopBuckets.map((item) => item.taller)),
+    ).sort((a, b) => a.localeCompare(b, "es"));
+    const approvedAnnualMatrix = new Map<string, { cantidad: number; monto: number }>();
+
+    for (const item of approvedAnnualWorkshopBuckets) {
+      approvedAnnualMatrix.set(`${item.month}::${item.taller}`, {
+        cantidad: item.cantidad,
+        monto: item.monto,
+      });
+    }
+
+    const approvedAnnualMonthLabels = approvedAnnualMonths.map((month) =>
+      formatMonthFilterLabel(month),
+    );
+    const approvedAnnualMontoByMonth = approvedAnnualMonths.map((month) =>
+      approvedAnnualWorkshops.reduce((total, taller) => {
+        const bucket = approvedAnnualMatrix.get(`${month}::${taller}`);
+        return total + (bucket?.monto ?? 0);
+      }, 0),
+    );
+    const workshopBarPalette = [
+      "#171717",
+      "#3f3f46",
+      "#525252",
+      "#737373",
+      "#a3a3a3",
+      "#d4d4d4",
+    ];
 
     const presupuestosPorEstadoDelMes = estadoChartOrder.map((estado) => ({
       name: estado,
@@ -582,7 +611,7 @@ export function DashboardShell({
     };
 
     const aprobadosAnualesPorTallerOption: DashboardChartOption = {
-      color: ["#171717", "#7c7c7c"],
+      color: [...workshopBarPalette, "#7c7c7c"],
       grid: { top: 42, left: 48, right: 64, bottom: 88, containLabel: true },
       legend: {
         top: 8,
@@ -615,13 +644,13 @@ export function DashboardShell({
       },
       xAxis: {
         type: "category",
-        data: approvedAnnualWorkshopLabels,
+        data: approvedAnnualMonthLabels,
         axisTick: { show: false },
         axisLine: { lineStyle: { color: "#d9d9d9" } },
         axisLabel: {
           fontSize: 10,
           interval: 0,
-          rotate: 24,
+          rotate: 18,
         },
       },
       yAxis: [
@@ -641,12 +670,17 @@ export function DashboardShell({
         },
       ],
       series: [
-        {
-          name: "Cantidad aprobados",
-          type: "bar",
-          barMaxWidth: 30,
-          data: approvedAnnualWorkshopBuckets.map((item) => item.cantidad),
-        },
+        ...approvedAnnualWorkshops.map((taller, index) => ({
+          name: taller,
+          type: "bar" as const,
+          barMaxWidth: 24,
+          itemStyle: {
+            color: workshopBarPalette[index % workshopBarPalette.length],
+          },
+          data: approvedAnnualMonths.map(
+            (month) => approvedAnnualMatrix.get(`${month}::${taller}`)?.cantidad ?? 0,
+          ),
+        })),
         {
           name: "Monto aprobado",
           type: "line",
@@ -657,7 +691,7 @@ export function DashboardShell({
           lineStyle: {
             width: 2,
           },
-          data: approvedAnnualWorkshopBuckets.map((item) => item.monto),
+          data: approvedAnnualMontoByMonth,
         },
       ],
     };

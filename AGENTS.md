@@ -236,7 +236,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - Al hacer click en un card de estado del dashboard, la app debe abrir `Presupuestos` con ese estado aplicado como filtro.
 - Indicadores implementados:
   - distribución mensual de presupuestos por estado en gráfico `pie`
-  - gráfico combinado anualizado de aprobados desagregado por `mes + taller`, con barras de cantidad y línea de monto total
+  - gráfico combinado anualizado de aprobados con eje por mes, barras agrupadas por taller y línea de monto total mensual
   - distribución mensual de presupuestos por marca en gráfico `radar`
   - distribución mensual de presupuestos por taller en gráfico `pie`
 
