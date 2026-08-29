@@ -33,6 +33,10 @@ export function getAppRole(
   return session.access.find((item) => item.appKey === appKey)?.role ?? null;
 }
 
+export function isAdminRole(role: CentralSession["access"][number]["role"] | null) {
+  return role === "admin";
+}
+
 function buildAppUrl(pathname = "/") {
   try {
     return new URL(pathname, APP_URL).toString();

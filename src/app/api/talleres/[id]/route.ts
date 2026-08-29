@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { authErrorResponse, getRequestAuthResult } from "@/lib/auth-session";
+import { getAppRole, isAdminRole } from "@/lib/auth/central";
 import { deleteTallerRecord, updateTallerRecord } from "@/lib/data";
 import { updateTallerSchema } from "@/lib/validation";
 
@@ -15,6 +16,13 @@ export async function PATCH(
     if (authResult.status !== "authenticated") {
       return authErrorResponse(
         authResult.status === "forbidden" ? 403 : 401,
+      );
+    }
+
+    if (!isAdminRole(getAppRole(authResult.session))) {
+      return NextResponse.json(
+        { message: "Solo los usuarios admin pueden gestionar talleres." },
+        { status: 403 },
       );
     }
 
@@ -60,6 +68,13 @@ export async function DELETE(
     if (authResult.status !== "authenticated") {
       return authErrorResponse(
         authResult.status === "forbidden" ? 403 : 401,
+      );
+    }
+
+    if (!isAdminRole(getAppRole(authResult.session))) {
+      return NextResponse.json(
+        { message: "Solo los usuarios admin pueden gestionar talleres." },
+        { status: 403 },
       );
     }
 

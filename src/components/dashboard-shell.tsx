@@ -18,6 +18,7 @@ import {
   TriangleAlert,
   UserRound,
 } from "lucide-react";
+import type { TopLevelFormatterParams } from "echarts/types/dist/shared";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,6 +108,9 @@ type TallerFormState = {
   activo: "true" | "false";
 };
 
+type TooltipScalarValue = string | number | Date | null | undefined;
+type TooltipValue = TooltipScalarValue | TooltipScalarValue[];
+
 const initialFormState: FormState = {
   interno: "",
   tallerId: "",
@@ -152,14 +156,18 @@ function getMonthKey(value: string) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function formatMonthKey(value: string) {
+function formatMonthFilterLabel(value: string) {
   const [year, month] = value.split("-");
   const date = new Date(Number(year), Number(month) - 1, 1);
 
   return new Intl.DateTimeFormat("es-AR", {
-    month: "short",
-    year: "2-digit",
+    month: "long",
+    year: "numeric",
   }).format(date);
+}
+
+function getYearKey(value: string) {
+  return String(new Date(value).getFullYear());
 }
 
 function buildCategoryCounts(values: Array<string | undefined>, emptyLabel: string) {
@@ -209,6 +217,28 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   return body;
 }
 
+function formatTooltipValue(value: TooltipValue) {
+  if (Array.isArray(value)) {
+    const lastValue = value[value.length - 1];
+    return formatTooltipValue(lastValue);
+  }
+
+  if (typeof value === "number") {
+    return formatCurrency(value);
+  }
+
+  return String(value ?? "");
+}
+
+function formatCountTooltipValue(value: TooltipValue) {
+  if (Array.isArray(value)) {
+    const lastValue = value[value.length - 1];
+    return formatCountTooltipValue(lastValue);
+  }
+
+  return String(value ?? "");
+}
+
 export function DashboardShell({
   initialPresupuestos,
   initialTalleres,
@@ -218,9 +248,15 @@ export function DashboardShell({
   currentUserRole,
   logoutUrl,
 }: DashboardShellProps) {
+  const initialDashboardMonths = Array.from(
+    new Set(initialPresupuestos.map((presupuesto) => getMonthKey(presupuesto.createdAt))),
+  ).sort((a, b) => b.localeCompare(a));
   const [activeView, setActiveView] = useState<ViewMode>("dashboard");
   const [presupuestos, setPresupuestos] = useState(initialPresupuestos);
   const [talleres, setTalleres] = useState(initialTalleres);
+  const [dashboardMonth, setDashboardMonth] = useState<string>(
+    initialDashboardMonths[0] ?? "all",
+  );
   const [vehicle, setVehicle] = useState<UnidadDTO | null>(null);
   const [form, setForm] = useState<FormState>(initialFormState);
   const [filters, setFilters] = useState<FilterState>(initialFilters);
@@ -240,6 +276,23 @@ export function DashboardShell({
   const [isDeletingTaller, startDeletingTallerTransition] = useTransition();
   const deferredDominio = useDeferredValue(filters.dominio);
   const deferredInterno = useDeferredValue(filters.interno);
+  const canManageSettings = currentUserRole === "admin";
+  const availableDashboardMonths = useMemo(
+    () =>
+      Array.from(
+        new Set(presupuestos.map((presupuesto) => getMonthKey(presupuesto.createdAt))),
+      ).sort((a, b) => b.localeCompare(a)),
+    [presupuestos],
+  );
+  const dashboardPresupuestos = useMemo(() => {
+    if (dashboardMonth === "all") {
+      return presupuestos;
+    }
+
+    return presupuestos.filter(
+      (presupuesto) => getMonthKey(presupuesto.createdAt) === dashboardMonth,
+    );
+  }, [dashboardMonth, presupuestos]);
 
   async function refreshPresupuestos() {
     const params = new URLSearchParams();
@@ -308,159 +361,271 @@ export function DashboardShell({
   }, [presupuestos]);
 
   const chartOptions = useMemo(() => {
-    const presupuestosPorMes = new Map<
+    const aprobadosAnualesPorTaller = new Map<
       string,
-      Record<PresupuestoEstado, number>
+      { year: string; taller: string; cantidad: number; monto: number }
     >();
-    const gastoAprobadoPorMes = new Map<string, number>();
 
     for (const presupuesto of presupuestos) {
-      const monthKey = getMonthKey(presupuesto.createdAt);
-      const monthBucket = presupuestosPorMes.get(monthKey) || {
-        Pendiente: 0,
-        Revisar: 0,
-        Aprobado: 0,
-        Rechazado: 0,
+      if (presupuesto.estado !== "Aprobado") {
+        continue;
+      }
+
+      const yearKey = getYearKey(presupuesto.createdAt);
+      const tallerLabel = presupuesto.tallerNombre?.trim() || "Sin taller";
+      const annualTallerKey = `${yearKey}::${tallerLabel}`;
+      const currentAnnualBucket = aprobadosAnualesPorTaller.get(annualTallerKey) || {
+        year: yearKey,
+        taller: tallerLabel,
+        cantidad: 0,
+        monto: 0,
       };
 
-      monthBucket[presupuesto.estado] += 1;
-      presupuestosPorMes.set(monthKey, monthBucket);
-
-      if (presupuesto.estado === "Aprobado") {
-        gastoAprobadoPorMes.set(
-          monthKey,
-          (gastoAprobadoPorMes.get(monthKey) || 0) + presupuesto.costoConIva,
-        );
-      }
+      currentAnnualBucket.cantidad += 1;
+      currentAnnualBucket.monto += presupuesto.costoConIva;
+      aprobadosAnualesPorTaller.set(annualTallerKey, currentAnnualBucket);
     }
 
-    const monthKeys = Array.from(presupuestosPorMes.keys()).sort();
-    const monthLabels = monthKeys.map(formatMonthKey);
+    const approvedAnnualWorkshopBuckets = Array.from(
+      aprobadosAnualesPorTaller.values(),
+    ).sort((a, b) => {
+      if (a.year !== b.year) {
+        return a.year.localeCompare(b.year);
+      }
+
+      if (b.cantidad !== a.cantidad) {
+        return b.cantidad - a.cantidad;
+      }
+
+      return a.taller.localeCompare(b.taller, "es");
+    });
+    const approvedAnnualWorkshopLabels = approvedAnnualWorkshopBuckets.map(
+      (item) => `${item.year} · ${item.taller}`,
+    );
+
+    const presupuestosPorEstadoDelMes = estadoChartOrder.map((estado) => ({
+      name: estado,
+      value: dashboardPresupuestos.filter((presupuesto) => presupuesto.estado === estado)
+        .length,
+      itemStyle: { color: estadoChartColors[estado] },
+    }));
+    const hasEstadoData = presupuestosPorEstadoDelMes.some((item) => item.value > 0);
 
     const presupuestosPorMesOption: DashboardChartOption = {
       color: estadoChartOrder.map((estado) => estadoChartColors[estado]),
-      grid: { top: 44, left: 40, right: 16, bottom: 32, containLabel: true },
-      legend: { top: 8, itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 11 } },
-      tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-      xAxis: {
-        type: "category",
-        data: monthLabels,
-        axisTick: { show: false },
-        axisLine: { lineStyle: { color: "#d9d9d9" } },
-        axisLabel: { fontSize: 11 },
+      legend: {
+        bottom: 0,
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { fontSize: 11 },
       },
-      yAxis: {
-        type: "value",
-        splitLine: { lineStyle: { color: "#ececec" } },
-        axisLabel: { fontSize: 11 },
-      },
-      series: estadoChartOrder.map((estado) => ({
-        name: estado,
-        type: "bar",
-        stack: "estado",
-        barMaxWidth: 34,
-        emphasis: { focus: "series" },
-        data: monthKeys.map((key) => presupuestosPorMes.get(key)?.[estado] || 0),
-      })),
-    };
-
-    const gastoAprobadoOption: DashboardChartOption = {
-      color: ["#171717"],
-      grid: { top: 24, left: 48, right: 16, bottom: 32, containLabel: true },
       tooltip: {
-        trigger: "axis",
-        axisPointer: { type: "shadow" },
-        valueFormatter: (value) =>
-          typeof value === "number" ? formatCurrency(value) : String(value),
-      },
-      xAxis: {
-        type: "category",
-        data: monthLabels,
-        axisTick: { show: false },
-        axisLine: { lineStyle: { color: "#d9d9d9" } },
-        axisLabel: { fontSize: 11 },
-      },
-      yAxis: {
-        type: "value",
-        splitLine: { lineStyle: { color: "#ececec" } },
-        axisLabel: {
-          fontSize: 11,
-          formatter: (value: number) => `${Math.round(value / 1000)}k`,
-        },
+        trigger: "item",
+        valueFormatter: (value: TooltipValue) => formatCountTooltipValue(value),
       },
       series: [
         {
-          name: "Aprobados",
-          type: "bar",
-          barMaxWidth: 38,
-          data: monthKeys.map((key) => gastoAprobadoPorMes.get(key) || 0),
+          name: "Presupuestos",
+          type: "pie",
+          radius: ["46%", "76%"],
+          center: ["50%", "43%"],
+          label: {
+            fontSize: 11,
+            formatter: "{b}: {c}",
+          },
+          data: hasEstadoData
+            ? presupuestosPorEstadoDelMes.filter((item) => item.value > 0)
+            : [{ name: "Sin datos", value: 1, itemStyle: { color: "#d4d4d4" } }],
         },
       ],
     };
 
-    const marcas = buildCategoryCounts(
-      presupuestos.map((presupuesto) => presupuesto.marca),
-      "Sin marca",
-    );
-    const marcasOption: DashboardChartOption = {
-      color: ["#171717"],
-      grid: { top: 20, left: 110, right: 20, bottom: 20, containLabel: true },
-      tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-      xAxis: {
-        type: "value",
-        splitLine: { lineStyle: { color: "#ececec" } },
-        axisLabel: { fontSize: 11 },
-      },
-      yAxis: {
-        type: "category",
-        data: marcas.map(([label]) => label),
-        axisTick: { show: false },
-        axisLabel: { fontSize: 11 },
-      },
-      series: [
-        {
-          type: "bar",
-          barMaxWidth: 26,
-          data: marcas.map(([, count]) => count),
-        },
-      ],
-    };
-
-    const talleresChart = buildCategoryCounts(
-      presupuestos.map((presupuesto) => presupuesto.tallerNombre),
+    const talleresDelMes = buildCategoryCounts(
+      dashboardPresupuestos.map((presupuesto) => presupuesto.tallerNombre),
       "Sin taller",
     );
     const talleresOption: DashboardChartOption = {
-      color: ["#7c7c7c"],
-      grid: { top: 20, left: 110, right: 20, bottom: 20, containLabel: true },
-      tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-      xAxis: {
-        type: "value",
-        splitLine: { lineStyle: { color: "#ececec" } },
-        axisLabel: { fontSize: 11 },
+      color: ["#171717", "#525252", "#737373", "#a3a3a3", "#d4d4d4"],
+      legend: {
+        bottom: 0,
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { fontSize: 11 },
       },
-      yAxis: {
-        type: "category",
-        data: talleresChart.map(([label]) => label),
-        axisTick: { show: false },
-        axisLabel: { fontSize: 11 },
+      tooltip: {
+        trigger: "item",
+        valueFormatter: (value: TooltipValue) => formatCountTooltipValue(value),
       },
       series: [
         {
+          name: "Talleres",
+          type: "pie",
+          radius: "72%",
+          center: ["50%", "43%"],
+          label: {
+            fontSize: 11,
+            formatter: "{b}: {c}",
+          },
+          data: talleresDelMes.length
+            ? talleresDelMes.map(([label, count]) => ({ name: label, value: count }))
+            : [{ name: "Sin datos", value: 1, itemStyle: { color: "#d4d4d4" } }],
+        },
+      ],
+    };
+
+    const marcasDelMes = buildCategoryCounts(
+      dashboardPresupuestos.map((presupuesto) => presupuesto.marca),
+      "Sin marca",
+    );
+    const radarSource = marcasDelMes.length ? marcasDelMes : [["Sin datos", 1] as const];
+    const marcasOption: DashboardChartOption = {
+      color: ["#171717"],
+      legend: {
+        bottom: 0,
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { fontSize: 11 },
+      },
+      tooltip: {
+        trigger: "item",
+      },
+      radar: {
+        indicator: radarSource.map(([label, count]) => ({
+          name: label,
+          max: Math.max(count, 1),
+        })),
+        radius: "63%",
+        splitNumber: 4,
+        axisName: {
+          color: "#404040",
+          fontSize: 10,
+        },
+        splitLine: {
+          lineStyle: {
+            color: "#e5e5e5",
+          },
+        },
+        splitArea: {
+          areaStyle: {
+            color: ["rgba(245,245,245,0.25)", "rgba(229,229,229,0.25)"],
+          },
+        },
+        axisLine: {
+          lineStyle: {
+            color: "#d4d4d4",
+          },
+        },
+      },
+      series: [
+        {
+          name: "Marcas",
+          type: "radar",
+          symbol: "circle",
+          symbolSize: 6,
+          lineStyle: {
+            width: 2,
+          },
+          areaStyle: {
+            color: "rgba(23,23,23,0.14)",
+          },
+          data: [
+            {
+              value: radarSource.map(([, count]) => count),
+              name: "Cantidad por marca",
+            },
+          ],
+        },
+      ],
+    };
+
+    const aprobadosAnualesPorTallerOption: DashboardChartOption = {
+      color: ["#171717", "#7c7c7c"],
+      grid: { top: 42, left: 48, right: 64, bottom: 88, containLabel: true },
+      legend: {
+        top: 8,
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { fontSize: 11 },
+      },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        formatter: (params: TopLevelFormatterParams) => {
+          const items = Array.isArray(params) ? params : [params];
+          const label = String(items[0]?.name || "");
+
+          return [
+            label,
+            ...items.map((item) => {
+              const rawValue = Array.isArray(item.value) ? item.value[1] : item.value;
+              const value =
+                typeof rawValue === "number"
+                  ? item.seriesName === "Monto aprobado"
+                    ? formatCurrency(rawValue)
+                    : String(rawValue)
+                  : String(rawValue ?? "");
+
+              return `${String(item.marker ?? "")}${item.seriesName}: ${value}`;
+            }),
+          ].join("<br/>");
+        },
+      },
+      xAxis: {
+        type: "category",
+        data: approvedAnnualWorkshopLabels,
+        axisTick: { show: false },
+        axisLine: { lineStyle: { color: "#d9d9d9" } },
+        axisLabel: {
+          fontSize: 10,
+          interval: 0,
+          rotate: 24,
+        },
+      },
+      yAxis: [
+        {
+          type: "value",
+          name: "Cantidad",
+          splitLine: { lineStyle: { color: "#ececec" } },
+          axisLabel: { fontSize: 11 },
+        },
+        {
+          type: "value",
+          name: "Monto",
+          axisLabel: {
+            fontSize: 11,
+            formatter: (value: number) => `${Math.round(value / 1000)}k`,
+          },
+        },
+      ],
+      series: [
+        {
+          name: "Cantidad aprobados",
           type: "bar",
-          barMaxWidth: 26,
-          data: talleresChart.map(([, count]) => count),
+          barMaxWidth: 30,
+          data: approvedAnnualWorkshopBuckets.map((item) => item.cantidad),
+        },
+        {
+          name: "Monto aprobado",
+          type: "line",
+          yAxisIndex: 1,
+          smooth: true,
+          symbol: "circle",
+          symbolSize: 7,
+          lineStyle: {
+            width: 2,
+          },
+          data: approvedAnnualWorkshopBuckets.map((item) => item.monto),
         },
       ],
     };
 
     return {
+      aprobadosAnualesPorTallerOption,
       presupuestosPorMesOption,
-      gastoAprobadoOption,
       marcasOption,
       talleresOption,
     };
-  }, [presupuestos]);
+  }, [dashboardPresupuestos, presupuestos]);
 
   useEffect(() => {
     startRefreshTransition(async () => {
@@ -468,6 +633,29 @@ export function DashboardShell({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.estado, filters.tallerId, deferredDominio, deferredInterno]);
+
+  useEffect(() => {
+    if (!canManageSettings && activeView === "configuracion") {
+      setActiveView("dashboard");
+    }
+  }, [activeView, canManageSettings]);
+
+  useEffect(() => {
+    if (!availableDashboardMonths.length) {
+      if (dashboardMonth !== "all") {
+        setDashboardMonth("all");
+      }
+      return;
+    }
+
+    if (dashboardMonth === "all") {
+      return;
+    }
+
+    if (!availableDashboardMonths.includes(dashboardMonth)) {
+      setDashboardMonth(availableDashboardMonths[0]);
+    }
+  }, [availableDashboardMonths, dashboardMonth]);
 
   function updateForm<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -483,6 +671,14 @@ export function DashboardShell({
   function resetTallerForm() {
     setTallerForm(initialTallerFormState);
     setEditingTallerId(null);
+  }
+
+  function openPresupuestosWithEstado(estado?: PresupuestoEstado) {
+    setActiveView("presupuestos");
+    setFilters((current) => ({
+      ...current,
+      estado: estado ?? "all",
+    }));
   }
 
   function lookupInterno() {
@@ -585,6 +781,11 @@ export function DashboardShell({
   }
 
   function startEditTaller(taller: TallerDTO) {
+    if (!canManageSettings) {
+      setFeedback("Solo los usuarios admin pueden gestionar talleres.");
+      return;
+    }
+
     setActiveView("configuracion");
     setEditingTallerId(taller.id);
     setTallerForm({
@@ -595,6 +796,11 @@ export function DashboardShell({
   }
 
   function saveTaller() {
+    if (!canManageSettings) {
+      setFeedback("Solo los usuarios admin pueden gestionar talleres.");
+      return;
+    }
+
     startSavingTallerTransition(async () => {
       try {
         const method = editingTallerId ? "PATCH" : "POST";
@@ -630,6 +836,11 @@ export function DashboardShell({
   }
 
   function deleteTaller(id: string) {
+    if (!canManageSettings) {
+      setFeedback("Solo los usuarios admin pueden gestionar talleres.");
+      return;
+    }
+
     startDeletingTallerTransition(async () => {
       try {
         await parseJsonResponse(
@@ -674,18 +885,18 @@ export function DashboardShell({
       description: "Carga y seguimiento",
       icon: ClipboardList,
     },
-    {
+  ];
+  if (canManageSettings) {
+    navigationItems.push({
       id: "configuracion",
       label: "Configuración",
       description: "CRUD de talleres",
       icon: Settings,
-    },
-  ];
+    });
+  }
 
-  const currentNavigationItem =
-    navigationItems.find((item) => item.id === activeView) ?? navigationItems[0];
   const profileLabel = currentUserName || currentUserEmail || "Mi perfil";
-  const roleLabel = (currentUserRole || "admin").toLowerCase();
+  const roleLabel = currentUserRole?.toLowerCase() || "sin rol";
 
   return (
     <main className="min-h-screen bg-background">
@@ -738,9 +949,15 @@ export function DashboardShell({
                     {roleLabel} · {currentUserEmail}
                   </span>
                 </div>
-                <div className="navbar__menu-link" role="menuitem">
-                  Vista actual: {currentNavigationItem.label}
-                </div>
+                <div className="navbar__menu-separator" aria-hidden="true" />
+                <SignOutButton
+                  action={logoutUrl}
+                  variant="ghost"
+                  size="sm"
+                  className="navbar__menu-link navbar__menu-link--logout"
+                  iconClassName="size-4"
+                  label="Cerrar sesión"
+                />
               </div>
             </details>
 
@@ -769,67 +986,110 @@ export function DashboardShell({
                 label="Total"
                 value={String(resumen.total)}
                 caption="Presupuestos visibles"
+                onClick={() => openPresupuestosWithEstado()}
               />
               <MetricTile
                 icon={TriangleAlert}
                 label="Pendiente"
                 value={String(resumen.pendientes)}
                 caption="Esperando definición"
+                onClick={() => openPresupuestosWithEstado("Pendiente")}
               />
               <MetricTile
                 icon={ShieldCheck}
                 label="Aprobado"
                 value={String(resumen.aprobados)}
                 caption="Listos para avanzar"
+                onClick={() => openPresupuestosWithEstado("Aprobado")}
               />
               <MetricTile
                 icon={TriangleAlert}
                 label="Revisar"
                 value={String(resumen.revisar)}
                 caption="Casos a validar"
+                onClick={() => openPresupuestosWithEstado("Revisar")}
               />
               <MetricTile
                 icon={Trash2}
                 label="Rechazado"
                 value={String(resumen.rechazados)}
                 caption="Descartados"
+                onClick={() => openPresupuestosWithEstado("Rechazado")}
               />
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-2">
+            <Card className="border-border/70 shadow-none">
+              <CardContent className="flex flex-col gap-3 px-3 py-3 md:flex-row md:items-end md:justify-between">
+                <div className="grid gap-1">
+                  <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                    Filtro mensual
+                  </p>
+                  <p className="text-sm font-medium">
+                    {dashboardMonth === "all"
+                      ? "Todos los meses disponibles"
+                      : formatMonthFilterLabel(dashboardMonth)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Este selector modifica estado, taller y marca. El anualizado queda fijo.
+                  </p>
+                </div>
+                <div className="w-full md:w-[260px]">
+                  <Select
+                    value={dashboardMonth}
+                    onValueChange={(value) => setDashboardMonth(value ?? "all")}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Seleccionar mes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los meses</SelectItem>
+                      {availableDashboardMonths.map((month) => (
+                        <SelectItem key={month} value={month}>
+                          {formatMonthFilterLabel(month)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-4">
               <ChartCard
-                title="Presupuestos por mes"
-                description="Barras apiladas por estado para seguir volumen y mezcla mensual."
+                title="Aprobados anualizados por taller"
+                description="Cantidad de presupuestos aprobados por año y taller, con línea de monto total aprobado."
               >
                 <EChartsSurface
-                  option={chartOptions.presupuestosPorMesOption}
-                  height={340}
+                  option={chartOptions.aprobadosAnualesPorTallerOption}
+                  height={360}
                 />
               </ChartCard>
 
-              <ChartCard
-                title="Gasto aprobado por mes"
-                description="Suma mensual de presupuestos aprobados calculada con IVA incluido."
-              >
-                <EChartsSurface
-                  option={chartOptions.gastoAprobadoOption}
-                  height={340}
-                />
-              </ChartCard>
+              <div className="grid gap-4 xl:grid-cols-3">
+                <ChartCard
+                  title="Presupuestos por mes"
+                  description="Distribución por estado del mes seleccionado."
+                >
+                  <EChartsSurface
+                    option={chartOptions.presupuestosPorMesOption}
+                    height={340}
+                  />
+                </ChartCard>
 
-              <ChartCard
-                title="Presupuestos por marca"
-                description="Distribución actual por marca para detectar concentración de trabajo."
-              >
-                <EChartsSurface option={chartOptions.marcasOption} height={360} />
-              </ChartCard>
+                <ChartCard
+                  title="Presupuestos por taller"
+                  description="Participación de cada taller dentro del mes seleccionado."
+                >
+                  <EChartsSurface option={chartOptions.talleresOption} height={340} />
+                </ChartCard>
 
-              <ChartCard
-                title="Presupuestos por taller"
-                description="Carga acumulada por proveedor para comparar volumen operativo."
-              >
-                <EChartsSurface option={chartOptions.talleresOption} height={360} />
-              </ChartCard>
+                <ChartCard
+                  title="Presupuestos por marca"
+                  description="Radar de concentración por marca en el mes seleccionado."
+                >
+                  <EChartsSurface option={chartOptions.marcasOption} height={340} />
+                </ChartCard>
+              </div>
             </div>
           </section>
         ) : null}
@@ -1374,7 +1634,7 @@ export function DashboardShell({
           </section>
         ) : null}
 
-        {activeView === "configuracion" ? (
+        {activeView === "configuracion" && canManageSettings ? (
           <section className="grid gap-4 px-3 md:px-4 lg:px-5 xl:grid-cols-[420px_minmax(0,1fr)]">
             <Card className="border-border/70 shadow-none">
               <CardHeader className="border-b border-border/70 pb-3">
@@ -1537,28 +1797,38 @@ function MetricTile({
   label,
   value,
   caption,
+  onClick,
 }: {
   icon: typeof ClipboardList;
   label: string;
   value: string;
   caption: string;
+  onClick: () => void;
 }) {
   return (
     <Card className="border-border/70 shadow-none">
-      <CardContent className="px-3 py-3">
-        <div className="flex items-start justify-between gap-3">
+      <button
+        type="button"
+        onClick={onClick}
+        className="block w-full text-left transition-colors hover:bg-secondary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <CardContent className="px-3 py-2.5">
+          <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
               {label}
             </p>
-            <p className="mt-1 font-heading text-4xl tracking-[-0.08em]">{value}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{caption}</p>
+            <p className="mt-0.5 font-heading text-3xl leading-none tracking-[-0.08em]">
+              {value}
+            </p>
+            <p className="mt-1 text-[0.78rem] text-muted-foreground">{caption}</p>
           </div>
-          <div className="rounded-md border border-border/70 bg-secondary/35 p-2 text-muted-foreground">
-            <Icon className="size-4" />
+          <div className="rounded-md border border-border/70 bg-secondary/35 p-1.5 text-muted-foreground">
+            <Icon className="size-3.5" />
           </div>
-        </div>
-      </CardContent>
+          </div>
+        </CardContent>
+      </button>
     </Card>
   );
 }

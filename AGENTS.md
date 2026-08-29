@@ -134,6 +134,8 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
   - `401` cuando no hay sesión central válida
   - `403` cuando el usuario está inactivo o sin acceso a esta app
 - El rol operativo del usuario se lee desde `access[].role` para el `appKey` de la aplicación.
+- La vista `Configuración` y las mutaciones de talleres solo pueden ser usadas por usuarios con rol `admin`.
+- Los usuarios sin rol `admin` no deben ver el item `Configuración` en el navbar.
 
 ## Modelo funcional actual
 
@@ -193,6 +195,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - `Configuración`
   - CRUD de talleres
 - El navbar principal usa una barra horizontal compacta con marca `Intra Talleres` a la izquierda, tabs visuales para las tres vistas y bloque de perfil con salida a la derecha.
+- El dropdown `Mi Perfil` no debe mostrar indicadores de vista actual; debe comportarse como menú compacto de perfil alineado a la referencia visual vigente.
 - La composición del navbar debe mantener cuatro zonas visuales claras: marca, subtítulo, rail central de navegación, tarjeta de perfil y acción `Salir` separada.
 - Para iteraciones del navbar no alcanza una aproximación visual: se prioriza replicar la anatomía exacta de la referencia mediante clases específicas y ajustes finos de proporción.
 - El contenedor exterior del navbar debe comportarse como una franja superior integrada, sin sombra ni marco redondeado cuando la referencia objetivo no sea una card.
@@ -215,11 +218,15 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 ## Dashboard actual
 
 - El dashboard utiliza `ECharts` para las visualizaciones.
+- El dashboard debe ofrecer un filtro por mes que afecte solo los gráficos operativos del mes y no el gráfico anualizado.
+- La composición vigente del dashboard para gráficos es `1 + 3`: arriba el anualizado de aprobados por taller y debajo los tres gráficos mensuales.
+- Los cards de métricas del dashboard deben mantenerse compactos y actuar como atajos hacia la vista `Presupuestos`.
+- Al hacer click en un card de estado del dashboard, la app debe abrir `Presupuestos` con ese estado aplicado como filtro.
 - Indicadores implementados:
-  - cantidad de presupuestos por mes con barras apiladas por estado
-  - gasto por mes de presupuestos aprobados
-  - cantidad de presupuestos por marca
-  - cantidad de presupuestos por taller
+  - distribución mensual de presupuestos por estado en gráfico `pie`
+  - gráfico combinado anualizado por taller para aprobados, con barras de cantidad y línea de monto total
+  - distribución mensual de presupuestos por marca en gráfico `radar`
+  - distribución mensual de presupuestos por taller en gráfico `pie`
 
 ## Reglas de catalogo de talleres
 

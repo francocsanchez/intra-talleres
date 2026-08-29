@@ -2,6 +2,15 @@
 
 ## 2026-08-29
 
+- Se compactaron los cards de métricas del dashboard para reducir su altura visual y hacer más densa la primera fila de indicadores.
+- Los indicadores del dashboard ahora funcionan como accesos rápidos a `Presupuestos`: `Total` abre sin filtro y cada estado abre la vista filtrada por el estado seleccionado.
+- Se reordenó la grilla del dashboard a una composición `1 + 3`: el gráfico anualizado queda arriba a todo el ancho y los tres gráficos mensuales quedan alineados debajo.
+- Se rediseñó el dashboard para incorporar un filtro por mes que afecta solo los gráficos operativos, dejando fijo el gráfico `Aprobados anualizados por taller`.
+- `Presupuestos por mes` pasó a mostrarse como gráfico `pie` por estado, `Presupuestos por taller` como `pie` por taller y `Presupuestos por marca` como gráfico `radar`.
+- Se agregó en el dashboard un gráfico combinado anualizado por taller usando solo presupuestos `Aprobado`, con barras para cantidad y línea para monto total aprobado.
+- Se eliminó del menú de perfil el indicador de `Vista actual` y se compactó el dropdown para que siga mejor la referencia visual del navbar compartida por el usuario.
+- El menú de `Configuración` ahora solo se muestra a usuarios con rol `admin` y la vista de configuración deja de renderizarse para roles no administrativos.
+- Las operaciones de alta, edición y baja de talleres quedaron protegidas también en API con validación de rol `admin`, manteniendo accesible el listado de talleres para la carga de presupuestos.
 - Se cambió el lookup de unidades por `interno` en SQL Server para que parta de `siac.dbo.stoauto`, filtrando `sa_tipo = 10` y usando `sa_codigo` como identificador operativo.
 - La marca y la versión exacta ahora se resuelven desde `siac.dbo.auto` mediante `sa_marca = au_marca` y `sa_auto = au_codigo`, mientras que dominio, km y chasis se completan desde `siac.dbo.anexusa` con `aus_tipo = sa_tipo` y `aus_codigo = sa_codigo`.
 - Se rediseñó el navbar principal para llevarlo a una barra horizontal única, más limpia y compacta, con identidad visual a la izquierda, navegación en formato cápsula y bloque de perfil alineado a la derecha.

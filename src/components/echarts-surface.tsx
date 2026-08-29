@@ -2,14 +2,21 @@
 
 import { useEffect, useRef } from "react";
 import * as echarts from "echarts/core";
-import { BarChart } from "echarts/charts";
+import { BarChart, LineChart, PieChart, RadarChart } from "echarts/charts";
 import {
   GridComponent,
   LegendComponent,
+  PolarComponent,
+  RadarComponent,
   TooltipComponent,
 } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
-import type { BarSeriesOption } from "echarts/charts";
+import type {
+  BarSeriesOption,
+  LineSeriesOption,
+  PieSeriesOption,
+  RadarSeriesOption,
+} from "echarts/charts";
 import type {
   ComposeOption,
   ECharts as EChartsInstance,
@@ -17,13 +24,34 @@ import type {
 import type {
   GridComponentOption,
   LegendComponentOption,
+  PolarComponentOption,
+  RadarComponentOption,
   TooltipComponentOption,
 } from "echarts/components";
 
-echarts.use([BarChart, GridComponent, LegendComponent, TooltipComponent, SVGRenderer]);
+echarts.use([
+  BarChart,
+  LineChart,
+  PieChart,
+  RadarChart,
+  GridComponent,
+  LegendComponent,
+  PolarComponent,
+  RadarComponent,
+  TooltipComponent,
+  SVGRenderer,
+]);
 
 export type DashboardChartOption = ComposeOption<
-  BarSeriesOption | GridComponentOption | LegendComponentOption | TooltipComponentOption
+  | BarSeriesOption
+  | LineSeriesOption
+  | PieSeriesOption
+  | RadarSeriesOption
+  | GridComponentOption
+  | LegendComponentOption
+  | PolarComponentOption
+  | RadarComponentOption
+  | TooltipComponentOption
 >;
 
 type EChartsSurfaceProps = {
