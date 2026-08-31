@@ -57,6 +57,7 @@ function serializePresupuesto(presupuesto: {
   nroPresupuesto?: string | null;
   prioridad?: string | null;
   detalle?: string | null;
+  fechaPedido?: Date | null;
   fechaIngresoTaller?: Date | null;
   fechaEgresoTaller?: Date | null;
   createdAt: Date;
@@ -79,6 +80,7 @@ function serializePresupuesto(presupuesto: {
     nroPresupuesto: sanitizeOptionalString(presupuesto.nroPresupuesto),
     prioridad: sanitizePrioridad(presupuesto.prioridad),
     detalle: sanitizeOptionalString(presupuesto.detalle),
+    fechaPedido: presupuesto.fechaPedido?.toISOString(),
     fechaIngresoTaller: presupuesto.fechaIngresoTaller?.toISOString(),
     fechaEgresoTaller: presupuesto.fechaEgresoTaller?.toISOString(),
     createdAt: presupuesto.createdAt.toISOString(),
@@ -193,7 +195,7 @@ export async function getPresupuestos(filters: PresupuestoFilters = {}) {
   }
 
   const presupuestos = await PresupuestoModel.find(query)
-    .sort({ createdAt: -1 })
+    .sort({ fechaPedido: -1, createdAt: -1 })
     .lean();
 
   return presupuestos.map(serializePresupuesto);
@@ -215,6 +217,7 @@ export async function createPresupuestoRecord(input: {
   nroPresupuesto?: string;
   prioridad?: string;
   detalle?: string;
+  fechaPedido?: string;
   fechaIngresoTaller?: string;
   fechaEgresoTaller?: string;
 }) {
@@ -222,6 +225,7 @@ export async function createPresupuestoRecord(input: {
 
   const created = await PresupuestoModel.create({
     ...input,
+    fechaPedido: input.fechaPedido || undefined,
     fechaIngresoTaller: input.fechaIngresoTaller || undefined,
     fechaEgresoTaller: input.fechaEgresoTaller || undefined,
   });

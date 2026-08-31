@@ -77,6 +77,9 @@ const presupuestoSchema = new Schema(
       type: String,
       trim: true,
     },
+    fechaPedido: {
+      type: Date,
+    },
     fechaIngresoTaller: {
       type: Date,
     },

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import type { ReactNode } from "react";
 import {
@@ -74,8 +75,10 @@ import type {
 } from "@/lib/types";
 
 type DashboardShellProps = {
+  currentView: ViewMode;
   initialPresupuestos: PresupuestoDTO[];
   initialTalleres: TallerDTO[];
+  initialFilters?: Partial<FilterState>;
   initialError?: string | null;
   currentUserEmail: string;
   currentUserName?: string | null;
@@ -94,6 +97,7 @@ type FormState = {
   nroPresupuesto: string;
   prioridad: string;
   detalle: string;
+  fechaPedido: string;
   fechaIngresoTaller: string;
   fechaEgresoTaller: string;
 };
@@ -111,6 +115,7 @@ type ExternalFormState = {
   nroPresupuesto: string;
   prioridad: string;
   detalle: string;
+  fechaPedido: string;
   fechaIngresoTaller: string;
   fechaEgresoTaller: string;
 };
@@ -131,37 +136,52 @@ type TallerFormState = {
 type TooltipScalarValue = string | number | Date | null | undefined;
 type TooltipValue = TooltipScalarValue | TooltipScalarValue[];
 
-const initialFormState: FormState = {
-  interno: "",
-  tallerId: "",
-  km: "",
-  costo: "",
-  observaciones: "",
-  nroPresupuesto: "",
-  prioridad: "",
-  detalle: "",
-  fechaIngresoTaller: "",
-  fechaEgresoTaller: "",
-};
+function getCurrentDateInputValue() {
+  const now = new Date();
+  const timezoneOffsetMs = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 10);
+}
 
-const initialExternalFormState: ExternalFormState = {
-  dominio: "",
-  marcaCodigo: "",
-  marcaNombre: "",
-  modeloCodigo: "",
-  modeloNombre: "",
-  tallerId: "",
-  km: "",
-  costo: "",
-  observaciones: "",
-  nroPresupuesto: "",
-  prioridad: "",
-  detalle: "",
-  fechaIngresoTaller: "",
-  fechaEgresoTaller: "",
-};
+function createInitialFormState(): FormState {
+  return {
+    interno: "",
+    tallerId: "",
+    km: "",
+    costo: "",
+    observaciones: "",
+    nroPresupuesto: "",
+    prioridad: "",
+    detalle: "",
+    fechaPedido: getCurrentDateInputValue(),
+    fechaIngresoTaller: "",
+    fechaEgresoTaller: "",
+  };
+}
 
-const initialFilters: FilterState = {
+function createInitialExternalFormState(): ExternalFormState {
+  return {
+    dominio: "",
+    marcaCodigo: "",
+    marcaNombre: "",
+    modeloCodigo: "",
+    modeloNombre: "",
+    tallerId: "",
+    km: "",
+    costo: "",
+    observaciones: "",
+    nroPresupuesto: "",
+    prioridad: "",
+    detalle: "",
+    fechaPedido: getCurrentDateInputValue(),
+    fechaIngresoTaller: "",
+    fechaEgresoTaller: "",
+  };
+}
+
+const initialFormState: FormState = createInitialFormState();
+const initialExternalFormState: ExternalFormState = createInitialExternalFormState();
+
+const defaultFilters: FilterState = {
   estado: "all",
   tallerId: "all",
   dominio: "",
@@ -205,6 +225,10 @@ function formatMonthFilterLabel(value: string) {
 
 function getYearKey(value: string) {
   return String(new Date(value).getFullYear());
+}
+
+function getPresupuestoAnalysisDate(presupuesto: PresupuestoDTO) {
+  return presupuesto.fechaPedido || presupuesto.createdAt;
 }
 
 function buildCategoryCounts(values: Array<string | undefined>, emptyLabel: string) {
@@ -264,18 +288,24 @@ function formatCountTooltipValue(value: TooltipValue) {
 }
 
 export function DashboardShell({
+  currentView,
   initialPresupuestos,
   initialTalleres,
+  initialFilters,
   initialError,
   currentUserEmail,
   currentUserName,
   currentUserRole,
   logoutUrl,
 }: DashboardShellProps) {
+  const router = useRouter();
   const initialDashboardMonths = Array.from(
-    new Set(initialPresupuestos.map((presupuesto) => getMonthKey(presupuesto.createdAt))),
+    new Set(
+      initialPresupuestos.map((presupuesto) =>
+        getMonthKey(getPresupuestoAnalysisDate(presupuesto)),
+      ),
+    ),
   ).sort((a, b) => b.localeCompare(a));
-  const [activeView, setActiveView] = useState<ViewMode>("dashboard");
   const [presupuestos, setPresupuestos] = useState(initialPresupuestos);
   const [talleres, setTalleres] = useState(initialTalleres);
   const [dashboardMonth, setDashboardMonth] = useState<string>(
@@ -284,7 +314,10 @@ export function DashboardShell({
   const [vehicle, setVehicle] = useState<UnidadDTO | null>(null);
   const [form, setForm] = useState<FormState>(initialFormState);
   const [externalForm, setExternalForm] = useState<ExternalFormState>(initialExternalFormState);
-  const [filters, setFilters] = useState<FilterState>(initialFilters);
+  const [filters, setFilters] = useState<FilterState>({
+    ...defaultFilters,
+    ...initialFilters,
+  });
   const [feedback, setFeedback] = useState<string | null>(initialError || null);
   const [lookupMessage, setLookupMessage] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -307,12 +340,14 @@ export function DashboardShell({
   const deferredInterno = useDeferredValue(filters.interno);
   const canManageSettings = currentUserRole === "admin";
   const canManagePresupuestos = currentUserRole === "admin" || currentUserRole === "user";
-  const resolvedActiveView =
-    !canManageSettings && activeView === "configuracion" ? "dashboard" : activeView;
   const availableDashboardMonths = useMemo(
     () =>
       Array.from(
-        new Set(presupuestos.map((presupuesto) => getMonthKey(presupuesto.createdAt))),
+        new Set(
+          presupuestos.map((presupuesto) =>
+            getMonthKey(getPresupuestoAnalysisDate(presupuesto)),
+          ),
+        ),
       ).sort((a, b) => b.localeCompare(a)),
     [presupuestos],
   );
@@ -335,7 +370,8 @@ export function DashboardShell({
     }
 
     return presupuestos.filter(
-      (presupuesto) => getMonthKey(presupuesto.createdAt) === resolvedDashboardMonth,
+      (presupuesto) =>
+        getMonthKey(getPresupuestoAnalysisDate(presupuesto)) === resolvedDashboardMonth,
     );
   }, [presupuestos, resolvedDashboardMonth]);
 
@@ -416,8 +452,9 @@ export function DashboardShell({
         continue;
       }
 
-      const yearKey = getYearKey(presupuesto.createdAt);
-      const monthKey = getMonthKey(presupuesto.createdAt);
+      const analysisDate = getPresupuestoAnalysisDate(presupuesto);
+      const yearKey = getYearKey(analysisDate);
+      const monthKey = getMonthKey(analysisDate);
       const tallerLabel = presupuesto.tallerNombre?.trim() || "Sin taller";
       const annualTallerKey = `${monthKey}::${tallerLabel}`;
       const currentAnnualBucket = aprobadosAnualesPorTaller.get(annualTallerKey) || {
@@ -447,8 +484,12 @@ export function DashboardShell({
       return a.taller.localeCompare(b.taller, "es");
     });
     const approvedAnnualMonths = Array.from(
-      new Set(approvedAnnualWorkshopBuckets.map((item) => item.month)),
-    );
+      new Set(
+        presupuestos.map((presupuesto) =>
+          getMonthKey(getPresupuestoAnalysisDate(presupuesto)),
+        ),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
     const approvedAnnualWorkshops = Array.from(
       new Set(approvedAnnualWorkshopBuckets.map((item) => item.taller)),
     ).sort((a, b) => a.localeCompare(b, "es"));
@@ -710,11 +751,15 @@ export function DashboardShell({
   }, [dashboardPresupuestos, presupuestos]);
 
   useEffect(() => {
+    if (currentView !== "presupuestos") {
+      return;
+    }
+
     startRefreshTransition(async () => {
       await refreshPresupuestos();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.estado, filters.tallerId, deferredDominio, deferredInterno]);
+  }, [currentView, filters.estado, filters.tallerId, deferredDominio, deferredInterno]);
 
   function updateForm<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -728,14 +773,14 @@ export function DashboardShell({
   }
 
   function resetForm() {
-    setForm(initialFormState);
+    setForm(createInitialFormState());
     setVehicle(null);
     setLookupMessage(null);
     setIsCreateDialogOpen(false);
   }
 
   function resetExternalForm() {
-    setExternalForm(initialExternalFormState);
+    setExternalForm(createInitialExternalFormState());
     setExternalModels([]);
     setIsExternalCreateDialogOpen(false);
   }
@@ -798,11 +843,14 @@ export function DashboardShell({
   }
 
   function openPresupuestosWithEstado(estado?: PresupuestoEstado) {
-    setActiveView("presupuestos");
-    setFilters((current) => ({
-      ...current,
-      estado: estado ?? "all",
-    }));
+    const params = new URLSearchParams();
+
+    if (estado) {
+      params.set("estado", estado);
+    }
+
+    const href = params.size ? `/presupuestos?${params.toString()}` : "/presupuestos";
+    router.push(href);
   }
 
   function lookupInterno() {
@@ -1023,7 +1071,6 @@ export function DashboardShell({
       return;
     }
 
-    setActiveView("configuracion");
     setEditingTallerId(taller.id);
     setTallerForm({
       nombre: taller.nombre,
@@ -1106,18 +1153,21 @@ export function DashboardShell({
 
   const navigationItems: Array<{
     id: ViewMode;
+    href: string;
     label: string;
     description: string;
     icon: typeof ClipboardList;
   }> = [
     {
       id: "dashboard",
+      href: "/dashboard",
       label: "Dashboard",
       description: "Resumen por estado",
       icon: BarChart3,
     },
     {
       id: "presupuestos",
+      href: "/presupuestos",
       label: "Presupuestos",
       description: "Carga y seguimiento",
       icon: ClipboardList,
@@ -1126,6 +1176,7 @@ export function DashboardShell({
   if (canManageSettings) {
     navigationItems.push({
       id: "configuracion",
+      href: "/configuracion",
       label: "Configuración",
       description: "CRUD de talleres",
       icon: Settings,
@@ -1140,7 +1191,7 @@ export function DashboardShell({
       <div className="mx-auto flex w-full max-w-[1720px] flex-col gap-4 px-0 pb-3 md:pb-4 lg:pb-5">
         <header className="navbar">
           <div className="navbar__start">
-            <Link className="navbar__brand" href="/" aria-label="Intra Talleres, inicio">
+            <Link className="navbar__brand" href="/dashboard" aria-label="Intra Talleres, inicio">
               <span className="navbar__mark">IT</span>
               <span className="navbar__brand-title">Intra Talleres</span>
             </Link>
@@ -1148,20 +1199,19 @@ export function DashboardShell({
             <nav aria-label="Navegacion principal" className="navbar__nav">
               {navigationItems.map((item) => {
                 const Icon = item.icon;
-                const active = resolvedActiveView === item.id;
+                const active = currentView === item.id;
 
                 return (
-                  <button
+                  <Link
                     key={item.id}
-                    type="button"
-                    onClick={() => setActiveView(item.id)}
+                    href={item.href}
                     className="navbar__link"
                     data-active={active}
                     aria-current={active ? "page" : undefined}
                   >
                     <Icon className="navbar__icon" />
                     <span>{item.label}</span>
-                  </button>
+                  </Link>
                 );
               })}
             </nav>
@@ -1215,7 +1265,7 @@ export function DashboardShell({
           </div>
         ) : null}
 
-        {resolvedActiveView === "dashboard" ? (
+        {currentView === "dashboard" ? (
           <section className="grid gap-4 px-3 md:px-4 lg:px-5">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <MetricTile
@@ -1331,7 +1381,7 @@ export function DashboardShell({
           </section>
         ) : null}
 
-        {resolvedActiveView === "presupuestos" ? (
+        {currentView === "presupuestos" ? (
           <section className="grid gap-4 px-3 md:px-4 lg:px-5">
             <Card className="border-border/70 shadow-none">
               <CardHeader className="border-b border-border/70 pb-3">
@@ -1468,6 +1518,16 @@ export function DashboardShell({
                                   onChange={(event) =>
                                     updateForm("nroPresupuesto", event.target.value)
                                   }
+                                />
+                              </Field>
+                              <Field label="F. Pedido" htmlFor="fechaPedido">
+                                <Input
+                                  id="fechaPedido"
+                                  value={form.fechaPedido}
+                                  onChange={(event) =>
+                                    updateForm("fechaPedido", event.target.value)
+                                  }
+                                  type="date"
                                 />
                               </Field>
                               <Field label="Prioridad" htmlFor="prioridad">
@@ -1709,6 +1769,16 @@ export function DashboardShell({
                                 }
                               />
                             </Field>
+                            <Field label="F. Pedido" htmlFor="externo-fechaPedido">
+                              <Input
+                                id="externo-fechaPedido"
+                                value={externalForm.fechaPedido}
+                                onChange={(event) =>
+                                  updateExternalForm("fechaPedido", event.target.value)
+                                }
+                                type="date"
+                              />
+                            </Field>
                             <Field label="Prioridad" htmlFor="externo-prioridad">
                               <Select
                                 value={externalForm.prioridad || "none"}
@@ -1906,6 +1976,7 @@ export function DashboardShell({
                         <TableHead>KM</TableHead>
                         <TableHead>Costo</TableHead>
                         <TableHead>Costo + IVA</TableHead>
+                        <TableHead>F. Pedido</TableHead>
                         <TableHead>Ingreso</TableHead>
                         <TableHead>Egreso</TableHead>
                         <TableHead>Gestión</TableHead>
@@ -1942,6 +2013,11 @@ export function DashboardShell({
                             <TableCell>{presupuesto.km}</TableCell>
                             <TableCell>{formatCurrency(presupuesto.costo)}</TableCell>
                             <TableCell>{formatCurrency(presupuesto.costoConIva)}</TableCell>
+                            <TableCell className="text-xs">
+                              {presupuesto.fechaPedido
+                                ? formatDate(presupuesto.fechaPedido)
+                                : formatDate(presupuesto.createdAt)}
+                            </TableCell>
                             <TableCell className="text-xs">
                               {presupuesto.fechaIngresoTaller
                                 ? formatDate(presupuesto.fechaIngresoTaller)
@@ -1985,7 +2061,7 @@ export function DashboardShell({
                       ) : (
                         <TableRow>
                           <TableCell
-                          colSpan={13}
+                          colSpan={14}
                           className="h-32 text-center text-sm text-muted-foreground"
                         >
                             {isRefreshing
@@ -2115,7 +2191,7 @@ export function DashboardShell({
 
                 {detailsPresupuesto ? (
                   <div className="grid gap-4">
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <DetailStat
                         label="Estado"
                         value={detailsPresupuesto.estado}
@@ -2123,6 +2199,12 @@ export function DashboardShell({
                       <DetailStat
                         label="Prioridad"
                         value={detailsPresupuesto.prioridad || "Sin definir"}
+                      />
+                      <DetailStat
+                        label="F. Pedido"
+                        value={formatDate(
+                          detailsPresupuesto.fechaPedido || detailsPresupuesto.createdAt,
+                        )}
                       />
                       <DetailStat
                         label="Egreso"
@@ -2156,7 +2238,7 @@ export function DashboardShell({
           </section>
         ) : null}
 
-        {resolvedActiveView === "configuracion" && canManageSettings ? (
+        {currentView === "configuracion" && canManageSettings ? (
           <section className="grid gap-4 px-3 md:px-4 lg:px-5 xl:grid-cols-[420px_minmax(0,1fr)]">
             <Card className="border-border/70 shadow-none">
               <CardHeader className="border-b border-border/70 pb-3">

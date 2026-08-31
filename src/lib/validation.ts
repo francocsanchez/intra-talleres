@@ -33,6 +33,7 @@ const presupuestoBaseSchema = z.object({
   nroPresupuesto: optionalTextField,
   prioridad: z.enum(PRIORIDAD_OPTIONS).optional(),
   detalle: optionalTextField,
+  fechaPedido: z.string().trim().min(1, "Ingresá la fecha del pedido."),
   fechaIngresoTaller: z.string().trim().optional(),
   fechaEgresoTaller: z.string().trim().optional(),
 });
@@ -99,6 +100,7 @@ export function normalizeCreatePresupuestoPayload(
   return {
     ...parsed,
     costoConIva: calculateCostoConIva(parsed.costo),
+    fechaPedido: parsed.fechaPedido,
     fechaIngresoTaller: parsed.fechaIngresoTaller || undefined,
     fechaEgresoTaller: parsed.fechaEgresoTaller || undefined,
   };

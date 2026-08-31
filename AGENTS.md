@@ -162,6 +162,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
   - `nroPresupuesto` opcional
   - `prioridad` opcional
   - `detalle` opcional
+  - `fechaPedido` obligatoria como fecha operativa del presupuesto y base de análisis
   - `fechaIngresoTaller` opcional
   - `fechaEgresoTaller` opcional
 
@@ -192,13 +193,17 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - `Forbidden`
   - informa que el usuario autenticado no tiene acceso a la app
 - `Dashboard`
+  - ruta real `/dashboard`
   - vista compacta de resumen por estado
 - `Presupuestos`
+  - ruta real `/presupuestos`
   - carga por interno
   - filtros
   - tabla consolidada
 - `Configuración`
+  - ruta real `/configuracion`
   - CRUD de talleres
+- `Dashboard`, `Presupuestos` y `Configuración` deben tratarse como vistas independientes con URL propia y recarga de datos al navegar entre ellas.
 - El navbar principal usa una barra horizontal compacta con marca `Intra Talleres` a la izquierda, tabs visuales para las tres vistas y bloque de perfil con salida a la derecha.
 - El dropdown `Mi Perfil` no debe mostrar indicadores de vista actual; debe comportarse como menú compacto de perfil alineado a la referencia visual vigente.
 - La composición del navbar debe mantener cuatro zonas visuales claras: marca, subtítulo, rail central de navegación, tarjeta de perfil y acción `Salir` separada.
@@ -218,6 +223,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - Deben coexistir dos altas de presupuesto:
   - una para unidades del sistema buscando por `interno`
   - otra para unidades externas sin `interno`
+- Ambos formularios de alta deben pedir `F. Pedido` y precargarla con la fecha actual local para acelerar la carga operativa.
 - Al cerrar cualquiera de los modales de alta, el formulario debe resetearse completo para no conservar datos de la operación anterior.
 - Los selects de taller dentro de formularios deben mostrar siempre `taller.nombre` como etiqueta visible, nunca el `id` persistido.
 - En presupuestos externos, la marca y el modelo deben seleccionarse desde el catálogo SQL del sistema y no como texto libre.
@@ -232,10 +238,12 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 ## Dashboard actual
 
 - El dashboard utiliza `ECharts` para las visualizaciones.
+- Todas las métricas y gráficos deben tomar `fechaPedido` como fecha analítica principal; `createdAt` solo puede actuar como respaldo para registros históricos sin ese campo.
 - El dashboard debe ofrecer un filtro por mes que afecte solo los gráficos operativos del mes y no el gráfico anualizado.
 - La composición vigente del dashboard para gráficos es `1 + 3`: arriba el anualizado de aprobados por taller y debajo los tres gráficos mensuales.
 - Los cards de métricas del dashboard deben mantenerse compactos y actuar como atajos hacia la vista `Presupuestos`.
 - Al hacer click en un card de estado del dashboard, la app debe abrir `Presupuestos` con ese estado aplicado como filtro.
+- El gráfico anualizado de aprobados debe mostrar todos los meses presentes en `presupuestos`, aunque alguno no tenga aprobados y deba visualizarse en `0`.
 - Indicadores implementados:
   - distribución mensual de presupuestos por estado en gráfico `pie`
   - gráfico combinado anualizado de aprobados con eje por mes, barras agrupadas por taller y línea de monto total mensual

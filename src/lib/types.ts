@@ -65,6 +65,7 @@ export type PresupuestoDTO = {
   nroPresupuesto?: string;
   prioridad?: PresupuestoPrioridad;
   detalle?: string;
+  fechaPedido?: string;
   fechaIngresoTaller?: string;
   fechaEgresoTaller?: string;
   createdAt: string;

@@ -2,6 +2,15 @@
 
 ## 2026-08-31
 
+- Se separaron `Dashboard`, `Presupuestos` y `Configuración` en rutas reales (`/dashboard`, `/presupuestos`, `/configuracion`) para que cada vista cargue sus datos al entrar y no comparta una única URL cliente.
+- La navegación principal ahora enlaza a esas rutas independientes y el acceso raíz `/` redirige a `/dashboard`.
+- Los atajos del dashboard hacia presupuestos ahora navegan por URL a `/presupuestos`, incluyendo el filtro de estado cuando corresponde.
+- La vista `/configuracion` quedó protegida además a nivel de página, redirigiendo a `/forbidden` si el usuario no es `admin`.
+- Se agregó el campo `F. Pedido` en presupuestos internos y externos, precargado con la fecha local actual para agilizar la carga del presupuesto.
+- `F. Pedido` pasó a persistirse en MongoDB y a mostrarse en la tabla y el detalle como fecha operativa del presupuesto.
+- Todos los análisis del dashboard ahora toman `fechaPedido` como base temporal; los registros viejos sin ese campo siguen entrando en métricas usando `createdAt` como respaldo.
+- El listado de presupuestos ahora se ordena primero por `fechaPedido` descendente y luego por `createdAt` para mantener una secuencia operativa coherente.
+- El gráfico `Aprobados anualizados por taller` ahora conserva todos los meses cargados en el dataset y completa con `0` cuando un mes no tiene presupuestos aprobados.
 - Se restringió el rol `viewer` a modo solo lectura: puede entrar a `Dashboard` y `Presupuestos`, aplicar filtros y abrir `Ver más` para consultar observaciones y detalle.
 - Los usuarios `viewer` ya no ven acciones para crear presupuestos internos o externos ni el botón `Gestionar` dentro de la tabla.
 - Las APIs `POST /api/presupuestos` y `PATCH /api/presupuestos/[id]` ahora responden `403` cuando el rol del usuario es `viewer`, evitando altas o gestión por acceso directo.

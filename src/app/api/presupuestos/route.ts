@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
         nroPresupuesto: payload.nroPresupuesto,
         prioridad: payload.prioridad,
         detalle: payload.detalle,
+        fechaPedido: payload.fechaPedido,
         fechaIngresoTaller: payload.fechaIngresoTaller,
         fechaEgresoTaller: payload.fechaEgresoTaller,
       });
@@ -144,6 +145,7 @@ export async function POST(request: NextRequest) {
       nroPresupuesto: payload.nroPresupuesto,
       prioridad: payload.prioridad,
       detalle: payload.detalle,
+      fechaPedido: payload.fechaPedido,
       fechaIngresoTaller: payload.fechaIngresoTaller,
       fechaEgresoTaller: payload.fechaEgresoTaller,
     });
