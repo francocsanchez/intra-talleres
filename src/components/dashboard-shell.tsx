@@ -63,6 +63,8 @@ import {
   calculateCostoConIva,
   formatCurrency,
   formatDate,
+  getCalendarMonthKey,
+  getCalendarYearKey,
 } from "@/lib/format";
 import type { AppRole } from "@/lib/auth/central";
 import type {
@@ -208,11 +210,6 @@ const estadoChartColors: Record<PresupuestoEstado, string> = {
   Rechazado: "#d14d41",
 };
 
-function getMonthKey(value: string) {
-  const date = new Date(value);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
 function formatMonthFilterLabel(value: string) {
   const [year, month] = value.split("-");
   const date = new Date(Number(year), Number(month) - 1, 1);
@@ -221,10 +218,6 @@ function formatMonthFilterLabel(value: string) {
     month: "long",
     year: "numeric",
   }).format(date);
-}
-
-function getYearKey(value: string) {
-  return String(new Date(value).getFullYear());
 }
 
 function getPresupuestoAnalysisDate(presupuesto: PresupuestoDTO) {
@@ -300,9 +293,9 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const router = useRouter();
   const initialDashboardMonths = Array.from(
-    new Set(
-      initialPresupuestos.map((presupuesto) =>
-        getMonthKey(getPresupuestoAnalysisDate(presupuesto)),
+        new Set(
+          initialPresupuestos.map((presupuesto) =>
+            getCalendarMonthKey(getPresupuestoAnalysisDate(presupuesto)),
       ),
     ),
   ).sort((a, b) => b.localeCompare(a));
@@ -345,7 +338,7 @@ export function DashboardShell({
       Array.from(
         new Set(
           presupuestos.map((presupuesto) =>
-            getMonthKey(getPresupuestoAnalysisDate(presupuesto)),
+            getCalendarMonthKey(getPresupuestoAnalysisDate(presupuesto)),
           ),
         ),
       ).sort((a, b) => b.localeCompare(a)),
@@ -371,7 +364,8 @@ export function DashboardShell({
 
     return presupuestos.filter(
       (presupuesto) =>
-        getMonthKey(getPresupuestoAnalysisDate(presupuesto)) === resolvedDashboardMonth,
+        getCalendarMonthKey(getPresupuestoAnalysisDate(presupuesto)) ===
+        resolvedDashboardMonth,
     );
   }, [presupuestos, resolvedDashboardMonth]);
 
@@ -453,8 +447,8 @@ export function DashboardShell({
       }
 
       const analysisDate = getPresupuestoAnalysisDate(presupuesto);
-      const yearKey = getYearKey(analysisDate);
-      const monthKey = getMonthKey(analysisDate);
+      const yearKey = getCalendarYearKey(analysisDate);
+      const monthKey = getCalendarMonthKey(analysisDate);
       const tallerLabel = presupuesto.tallerNombre?.trim() || "Sin taller";
       const annualTallerKey = `${monthKey}::${tallerLabel}`;
       const currentAnnualBucket = aprobadosAnualesPorTaller.get(annualTallerKey) || {
@@ -486,7 +480,7 @@ export function DashboardShell({
     const approvedAnnualMonths = Array.from(
       new Set(
         presupuestos.map((presupuesto) =>
-          getMonthKey(getPresupuestoAnalysisDate(presupuesto)),
+          getCalendarMonthKey(getPresupuestoAnalysisDate(presupuesto)),
         ),
       ),
     ).sort((a, b) => a.localeCompare(b));

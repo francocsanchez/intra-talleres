@@ -239,6 +239,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 
 - El dashboard utiliza `ECharts` para las visualizaciones.
 - Todas las métricas y gráficos deben tomar `fechaPedido` como fecha analítica principal; `createdAt` solo puede actuar como respaldo para registros históricos sin ese campo.
+- Las fechas calendario cargadas por formulario o serializadas como `YYYY-MM-DD` o `YYYY-MM-DDT...` deben interpretarse preservando el día calendario local, sin corrimientos de día o mes por zona horaria.
 - El dashboard debe ofrecer un filtro por mes que afecte solo los gráficos operativos del mes y no el gráfico anualizado.
 - La composición vigente del dashboard para gráficos es `1 + 3`: arriba el anualizado de aprobados por taller y debajo los tres gráficos mensuales.
 - Los cards de métricas del dashboard deben mantenerse compactos y actuar como atajos hacia la vista `Presupuestos`.

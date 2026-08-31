@@ -2,6 +2,8 @@
 
 ## 2026-08-31
 
+- Se corrigió el parseo de fechas calendario para que `F. Pedido` y otras fechas tipo `YYYY-MM-DD` no se desplacen por zona horaria y un presupuesto del `2026-06-01` siga computando en junio.
+- Se ajustó `tsconfig.json` para que el build no dependa de tipos transitorios generados en `.next/dev`, evitando falsos errores de TypeScript ajenos al código fuente.
 - Se separaron `Dashboard`, `Presupuestos` y `Configuración` en rutas reales (`/dashboard`, `/presupuestos`, `/configuracion`) para que cada vista cargue sus datos al entrar y no comparta una única URL cliente.
 - La navegación principal ahora enlaza a esas rutas independientes y el acceso raíz `/` redirige a `/dashboard`.
 - Los atajos del dashboard hacia presupuestos ahora navegan por URL a `/presupuestos`, incluyendo el filtro de estado cuando corresponde.
