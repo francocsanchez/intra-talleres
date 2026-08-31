@@ -137,6 +137,8 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - El rol operativo del usuario se lee desde `access[].role` para el `appKey` de la aplicación.
 - La vista `Configuración` y las mutaciones de talleres solo pueden ser usadas por usuarios con rol `admin`.
 - Los usuarios sin rol `admin` no deben ver el item `Configuración` en el navbar.
+- El rol `viewer` solo puede ingresar a `Dashboard` y `Presupuestos` en modo lectura.
+- El rol `viewer` no puede crear presupuestos ni gestionarlos, pero sí puede abrir `Ver más` para consultar observaciones y detalle.
 
 ## Modelo funcional actual
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-08-31
+
+- Se restringió el rol `viewer` a modo solo lectura: puede entrar a `Dashboard` y `Presupuestos`, aplicar filtros y abrir `Ver más` para consultar observaciones y detalle.
+- Los usuarios `viewer` ya no ven acciones para crear presupuestos internos o externos ni el botón `Gestionar` dentro de la tabla.
+- Las APIs `POST /api/presupuestos` y `PATCH /api/presupuestos/[id]` ahora responden `403` cuando el rol del usuario es `viewer`, evitando altas o gestión por acceso directo.
+
 ## 2026-08-29
 
 - Se corrigió la escala del radar `Presupuestos por marca` para que todas las marcas compartan el mismo máximo de referencia y la distancia al centro refleje proporciones reales.

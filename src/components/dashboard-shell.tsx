@@ -63,6 +63,7 @@ import {
   formatCurrency,
   formatDate,
 } from "@/lib/format";
+import type { AppRole } from "@/lib/auth/central";
 import type {
   PresupuestoDTO,
   PresupuestoEstado,
@@ -78,7 +79,7 @@ type DashboardShellProps = {
   initialError?: string | null;
   currentUserEmail: string;
   currentUserName?: string | null;
-  currentUserRole?: string;
+  currentUserRole?: AppRole;
   logoutUrl: string;
 };
 
@@ -253,19 +254,6 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   return body;
 }
 
-function formatTooltipValue(value: TooltipValue) {
-  if (Array.isArray(value)) {
-    const lastValue = value[value.length - 1];
-    return formatTooltipValue(lastValue);
-  }
-
-  if (typeof value === "number") {
-    return formatCurrency(value);
-  }
-
-  return String(value ?? "");
-}
-
 function formatCountTooltipValue(value: TooltipValue) {
   if (Array.isArray(value)) {
     const lastValue = value[value.length - 1];
@@ -318,6 +306,9 @@ export function DashboardShell({
   const deferredDominio = useDeferredValue(filters.dominio);
   const deferredInterno = useDeferredValue(filters.interno);
   const canManageSettings = currentUserRole === "admin";
+  const canManagePresupuestos = currentUserRole === "admin" || currentUserRole === "user";
+  const resolvedActiveView =
+    !canManageSettings && activeView === "configuracion" ? "dashboard" : activeView;
   const availableDashboardMonths = useMemo(
     () =>
       Array.from(
@@ -325,15 +316,28 @@ export function DashboardShell({
       ).sort((a, b) => b.localeCompare(a)),
     [presupuestos],
   );
-  const dashboardPresupuestos = useMemo(() => {
+  const resolvedDashboardMonth = useMemo(() => {
+    if (!availableDashboardMonths.length) {
+      return "all";
+    }
+
     if (dashboardMonth === "all") {
+      return "all";
+    }
+
+    return availableDashboardMonths.includes(dashboardMonth)
+      ? dashboardMonth
+      : availableDashboardMonths[0];
+  }, [availableDashboardMonths, dashboardMonth]);
+  const dashboardPresupuestos = useMemo(() => {
+    if (resolvedDashboardMonth === "all") {
       return presupuestos;
     }
 
     return presupuestos.filter(
-      (presupuesto) => getMonthKey(presupuesto.createdAt) === dashboardMonth,
+      (presupuesto) => getMonthKey(presupuesto.createdAt) === resolvedDashboardMonth,
     );
-  }, [dashboardMonth, presupuestos]);
+  }, [presupuestos, resolvedDashboardMonth]);
 
   async function refreshPresupuestos() {
     const params = new URLSearchParams();
@@ -712,29 +716,6 @@ export function DashboardShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.estado, filters.tallerId, deferredDominio, deferredInterno]);
 
-  useEffect(() => {
-    if (!canManageSettings && activeView === "configuracion") {
-      setActiveView("dashboard");
-    }
-  }, [activeView, canManageSettings]);
-
-  useEffect(() => {
-    if (!availableDashboardMonths.length) {
-      if (dashboardMonth !== "all") {
-        setDashboardMonth("all");
-      }
-      return;
-    }
-
-    if (dashboardMonth === "all") {
-      return;
-    }
-
-    if (!availableDashboardMonths.includes(dashboardMonth)) {
-      setDashboardMonth(availableDashboardMonths[0]);
-    }
-  }, [availableDashboardMonths, dashboardMonth]);
-
   function updateForm<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -918,6 +899,11 @@ export function DashboardShell({
     talleres.find((taller) => taller.id === externalForm.tallerId)?.nombre ?? "";
 
   function createPresupuesto() {
+    if (!canManagePresupuestos) {
+      setFeedback("El rol viewer solo puede consultar presupuestos y ver observaciones.");
+      return;
+    }
+
     startSubmitTransition(async () => {
       try {
         const response = await fetch("/api/presupuestos", {
@@ -946,6 +932,11 @@ export function DashboardShell({
   }
 
   function createExternalPresupuesto() {
+    if (!canManagePresupuestos) {
+      setFeedback("El rol viewer solo puede consultar presupuestos y ver observaciones.");
+      return;
+    }
+
     startSubmitTransition(async () => {
       try {
         const response = await fetch("/api/presupuestos", {
@@ -976,6 +967,11 @@ export function DashboardShell({
   }
 
   function openManagePresupuesto(presupuesto: PresupuestoDTO) {
+    if (!canManagePresupuestos) {
+      setFeedback("El rol viewer solo puede consultar presupuestos y ver observaciones.");
+      return;
+    }
+
     setManagePresupuesto(presupuesto);
     setManageEstadoDraft(presupuesto.estado);
     setManageEgresoDraft(presupuesto.fechaEgresoTaller?.slice(0, 10) ?? "");
@@ -983,6 +979,11 @@ export function DashboardShell({
 
   function savePresupuestoManagement() {
     if (!managePresupuesto) {
+      return;
+    }
+
+    if (!canManagePresupuestos) {
+      setFeedback("El rol viewer solo puede consultar presupuestos y ver observaciones.");
       return;
     }
 
@@ -1147,7 +1148,7 @@ export function DashboardShell({
             <nav aria-label="Navegacion principal" className="navbar__nav">
               {navigationItems.map((item) => {
                 const Icon = item.icon;
-                const active = activeView === item.id;
+                const active = resolvedActiveView === item.id;
 
                 return (
                   <button
@@ -1214,7 +1215,7 @@ export function DashboardShell({
           </div>
         ) : null}
 
-        {activeView === "dashboard" ? (
+        {resolvedActiveView === "dashboard" ? (
           <section className="grid gap-4 px-3 md:px-4 lg:px-5">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <MetricTile
@@ -1261,9 +1262,9 @@ export function DashboardShell({
                     Filtro mensual
                   </p>
                   <p className="text-sm font-medium">
-                    {dashboardMonth === "all"
+                    {resolvedDashboardMonth === "all"
                       ? "Todos los meses disponibles"
-                      : formatMonthFilterLabel(dashboardMonth)}
+                      : formatMonthFilterLabel(resolvedDashboardMonth)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Este selector modifica estado, taller y marca. El anualizado queda fijo.
@@ -1271,7 +1272,7 @@ export function DashboardShell({
                 </div>
                 <div className="w-full md:w-[260px]">
                   <Select
-                    value={dashboardMonth}
+                    value={resolvedDashboardMonth}
                     onValueChange={(value) => setDashboardMonth(value ?? "all")}
                   >
                     <SelectTrigger className="w-full">
@@ -1330,7 +1331,7 @@ export function DashboardShell({
           </section>
         ) : null}
 
-        {activeView === "presupuestos" ? (
+        {resolvedActiveView === "presupuestos" ? (
           <section className="grid gap-4 px-3 md:px-4 lg:px-5">
             <Card className="border-border/70 shadow-none">
               <CardHeader className="border-b border-border/70 pb-3">
@@ -1340,24 +1341,26 @@ export function DashboardShell({
                       Seguimiento de presupuestos
                     </CardTitle>
                     <CardDescription>
-                      Cargá nuevos presupuestos desde un modal y completá el egreso cuando la
-                      unidad salga de taller.
+                      {canManagePresupuestos
+                        ? "Cargá nuevos presupuestos desde un modal y completá el egreso cuando la unidad salga de taller."
+                        : "Consultá presupuestos, aplicá filtros y abrí observaciones en modo solo lectura."}
                     </CardDescription>
                   </div>
                   <div className="flex flex-col gap-2 xl:items-end">
-                    <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
-                      <Dialog
-                        open={isCreateDialogOpen}
-                        onOpenChange={handleCreateDialogOpenChange}
-                      >
-                        <DialogTrigger
-                          render={
-                            <Button type="button" className="w-full xl:w-auto" />
-                          }
+                    {canManagePresupuestos ? (
+                      <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
+                        <Dialog
+                          open={isCreateDialogOpen}
+                          onOpenChange={handleCreateDialogOpenChange}
                         >
-                            <Plus className="size-4" />
-                            Nuevo presupuesto
-                        </DialogTrigger>
+                          <DialogTrigger
+                            render={
+                              <Button type="button" className="w-full xl:w-auto" />
+                            }
+                          >
+                              <Plus className="size-4" />
+                              Nuevo presupuesto
+                          </DialogTrigger>
                         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
                           <DialogHeader>
                             <DialogTitle className="font-heading text-2xl tracking-[-0.04em]">
@@ -1562,20 +1565,20 @@ export function DashboardShell({
                             </div>
                           </div>
                         </DialogContent>
-                      </Dialog>
+                        </Dialog>
 
-                      <Dialog
-                        open={isExternalCreateDialogOpen}
-                        onOpenChange={openExternalCreateDialog}
-                      >
-                        <DialogTrigger
-                          render={
-                            <Button type="button" variant="outline" className="w-full xl:w-auto" />
-                          }
+                        <Dialog
+                          open={isExternalCreateDialogOpen}
+                          onOpenChange={openExternalCreateDialog}
                         >
-                            <Plus className="size-4" />
-                            Nuevo presupuesto externo
-                        </DialogTrigger>
+                          <DialogTrigger
+                            render={
+                              <Button type="button" variant="outline" className="w-full xl:w-auto" />
+                            }
+                          >
+                              <Plus className="size-4" />
+                              Nuevo presupuesto externo
+                          </DialogTrigger>
                         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
                         <DialogHeader>
                           <DialogTitle className="font-heading text-2xl tracking-[-0.04em]">
@@ -1825,8 +1828,13 @@ export function DashboardShell({
                           </div>
                         </div>
                         </DialogContent>
-                      </Dialog>
-                    </div>
+                        </Dialog>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-border/70 bg-secondary/35 px-3 py-2 text-xs text-muted-foreground xl:w-auto">
+                        Rol `viewer`: acceso solo de lectura en presupuestos.
+                      </div>
+                    )}
 
                     <div className="grid w-full gap-2 md:grid-cols-4 xl:w-[920px]">
                       <Input
@@ -1945,15 +1953,21 @@ export function DashboardShell({
                                 : "Sin fecha"}
                             </TableCell>
                             <TableCell>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openManagePresupuesto(presupuesto)}
-                              >
-                                <Pencil className="size-4" />
-                                Gestionar
-                              </Button>
+                              {canManagePresupuestos ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openManagePresupuesto(presupuesto)}
+                                >
+                                  <Pencil className="size-4" />
+                                  Gestionar
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  Solo lectura
+                                </span>
+                              )}
                             </TableCell>
                             <TableCell>
                               <Button
@@ -2142,7 +2156,7 @@ export function DashboardShell({
           </section>
         ) : null}
 
-        {activeView === "configuracion" && canManageSettings ? (
+        {resolvedActiveView === "configuracion" && canManageSettings ? (
           <section className="grid gap-4 px-3 md:px-4 lg:px-5 xl:grid-cols-[420px_minmax(0,1fr)]">
             <Card className="border-border/70 shadow-none">
               <CardHeader className="border-b border-border/70 pb-3">

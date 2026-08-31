@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { authErrorResponse, getRequestAuthResult } from "@/lib/auth-session";
+import { canManagePresupuestos, getAppRole } from "@/lib/auth/central";
 import {
   createPresupuestoRecord,
   getPresupuestos,
@@ -51,6 +52,16 @@ export async function POST(request: NextRequest) {
     if (authResult.status !== "authenticated") {
       return authErrorResponse(
         authResult.status === "forbidden" ? 403 : 401,
+      );
+    }
+
+    if (!canManagePresupuestos(getAppRole(authResult.session))) {
+      return NextResponse.json(
+        {
+          message:
+            "El rol viewer solo puede consultar presupuestos y ver observaciones.",
+        },
+        { status: 403 },
       );
     }
 

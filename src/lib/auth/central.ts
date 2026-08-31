@@ -8,6 +8,7 @@ const CENTRAL_AUTH_PUBLIC_URL =
   process.env.CENTRAL_AUTH_PUBLIC_URL || CENTRAL_AUTH_URL;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3012";
 const APP_KEY = process.env.CENTRAL_APP_KEY || "intra-talleres";
+export type AppRole = CentralSession["access"][number]["role"];
 
 export type CentralAuthResult =
   | {
@@ -29,12 +30,16 @@ export function hasAppAccess(
 export function getAppRole(
   session: CentralSession,
   appKey = APP_KEY,
-): CentralSession["access"][number]["role"] | null {
+): AppRole | null {
   return session.access.find((item) => item.appKey === appKey)?.role ?? null;
 }
 
-export function isAdminRole(role: CentralSession["access"][number]["role"] | null) {
+export function isAdminRole(role: AppRole | null) {
   return role === "admin";
+}
+
+export function canManagePresupuestos(role: AppRole | null) {
+  return role === "admin" || role === "user";
 }
 
 function buildAppUrl(pathname = "/") {
