@@ -231,6 +231,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - El catálogo de modelos para presupuestos externos debe salir de `siac.dbo.auto`, vinculando `au_marca = mar_codigo`, guardando `au_codigo` y mostrando `au_nombre`.
 - Si la carga del catálogo externo se recupera correctamente luego de un fallo previo, el mensaje global de error no debe persistir visible.
 - La fecha de egreso puede quedar vacía al crear y luego completarse desde la tabla de seguimiento.
+- Desde el modal de gestión debe poder editarse tanto `fechaIngresoTaller` como `fechaEgresoTaller`, y ambas deben poder limpiarse para reflejar unidades que todavía no ingresaron o egresaron.
 - Observaciones y detalle se visualizan completos mediante un `dialog` disparado por `Ver más`.
 - La columna `Observaciones` en la tabla no muestra texto resumido: solo expone el botón `Ver más`.
 - El cambio de estado y la carga de fecha de egreso se realizan desde un único `dialog` de gestión por presupuesto.

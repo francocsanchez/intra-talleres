@@ -253,6 +253,7 @@ export async function updatePresupuestoRecord(
   id: string,
   input: {
     estado?: PresupuestoDTO["estado"];
+    fechaIngresoTaller?: string;
     fechaEgresoTaller?: string;
   },
 ) {
@@ -262,6 +263,10 @@ export async function updatePresupuestoRecord(
 
   if (input.estado !== undefined) {
     payload.estado = input.estado;
+  }
+
+  if (input.fechaIngresoTaller !== undefined) {
+    payload.fechaIngresoTaller = input.fechaIngresoTaller || null;
   }
 
   if (input.fechaEgresoTaller !== undefined) {

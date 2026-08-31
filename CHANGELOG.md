@@ -2,6 +2,7 @@
 
 ## 2026-08-31
 
+- El modal `Gestionar presupuesto` ahora permite editar y limpiar tanto la fecha de ingreso como la fecha de egreso del taller, cubriendo también unidades que todavía no ingresaron.
 - Se corrigió el parseo de fechas calendario para que `F. Pedido` y otras fechas tipo `YYYY-MM-DD` no se desplacen por zona horaria y un presupuesto del `2026-06-01` siga computando en junio.
 - Se ajustó `tsconfig.json` para que el build no dependa de tipos transitorios generados en `.next/dev`, evitando falsos errores de TypeScript ajenos al código fuente.
 - Se separaron `Dashboard`, `Presupuestos` y `Configuración` en rutas reales (`/dashboard`, `/presupuestos`, `/configuracion`) para que cada vista cargue sus datos al entrar y no comparta una única URL cliente.

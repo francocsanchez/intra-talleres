@@ -318,6 +318,7 @@ export function DashboardShell({
   const [detailsPresupuesto, setDetailsPresupuesto] = useState<PresupuestoDTO | null>(null);
   const [managePresupuesto, setManagePresupuesto] = useState<PresupuestoDTO | null>(null);
   const [manageEstadoDraft, setManageEstadoDraft] = useState<PresupuestoEstado>("Pendiente");
+  const [manageIngresoDraft, setManageIngresoDraft] = useState("");
   const [manageEgresoDraft, setManageEgresoDraft] = useState("");
   const [tallerForm, setTallerForm] = useState<TallerFormState>(initialTallerFormState);
   const [editingTallerId, setEditingTallerId] = useState<string | null>(null);
@@ -1016,6 +1017,7 @@ export function DashboardShell({
 
     setManagePresupuesto(presupuesto);
     setManageEstadoDraft(presupuesto.estado);
+    setManageIngresoDraft(presupuesto.fechaIngresoTaller?.slice(0, 10) ?? "");
     setManageEgresoDraft(presupuesto.fechaEgresoTaller?.slice(0, 10) ?? "");
   }
 
@@ -1038,6 +1040,7 @@ export function DashboardShell({
           },
           body: JSON.stringify({
             estado: manageEstadoDraft,
+            fechaIngresoTaller: manageIngresoDraft,
             fechaEgresoTaller: manageEgresoDraft,
           }),
         });
@@ -1048,12 +1051,12 @@ export function DashboardShell({
           ),
         );
         setManagePresupuesto(null);
-        setFeedback("Estado y egreso actualizados.");
+        setFeedback("Estado, ingreso y egreso actualizados.");
       } catch (error) {
         setFeedback(
           error instanceof Error
             ? error.message
-            : "No pudimos actualizar el estado y egreso.",
+            : "No pudimos actualizar el estado, ingreso y egreso.",
         );
       }
     });
@@ -2092,7 +2095,7 @@ export function DashboardShell({
 
                 {managePresupuesto ? (
                   <div className="grid gap-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-3">
                       <Field label="Estado" htmlFor="manage-estado">
                         <Select
                           value={manageEstadoDraft}
@@ -2112,6 +2115,14 @@ export function DashboardShell({
                           </SelectContent>
                         </Select>
                       </Field>
+                      <Field label="Fecha de ingreso" htmlFor="manage-ingreso">
+                        <Input
+                          id="manage-ingreso"
+                          type="date"
+                          value={manageIngresoDraft}
+                          onChange={(event) => setManageIngresoDraft(event.target.value)}
+                        />
+                      </Field>
                       <Field label="Fecha de egreso" htmlFor="manage-egreso">
                         <Input
                           id="manage-egreso"
@@ -2125,10 +2136,15 @@ export function DashboardShell({
                       <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
                         Estado actual
                       </p>
-                      <div className="mt-2 flex items-center justify-between gap-3">
+                      <div className="mt-2 grid gap-2 sm:grid-cols-[auto_1fr_1fr] sm:items-center">
                         <Badge className={getEstadoTone(managePresupuesto.estado)}>
                           {managePresupuesto.estado}
                         </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {managePresupuesto.fechaIngresoTaller
+                            ? `Ingreso cargado: ${formatDate(managePresupuesto.fechaIngresoTaller)}`
+                            : "Todavía sin fecha de ingreso"}
+                        </span>
                         <span className="text-sm text-muted-foreground">
                           {managePresupuesto.fechaEgresoTaller
                             ? `Egreso cargado: ${formatDate(managePresupuesto.fechaEgresoTaller)}`
