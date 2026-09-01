@@ -2,6 +2,10 @@
 
 ## 2026-09-01
 
+- Los badges de estado en la tabla ahora usan semántica visual operativa: `Aprobado` verde, `Pendiente` amarillo, `Rechazado` rojo y `Revisar` gris.
+- Se garantizó que las nuevas altas persistan los valores de toma aun cuando Mongoose reutilice el modelo durante desarrollo, y `Valor info` pasó a ser obligatorio para que el indicador de costo pueda evaluarse correctamente. Los registros históricos sin datos de toma no se marcan porque no es posible calcular su diferencia real.
+- La tabla de seguimiento ahora formatea los kilómetros con separador de miles y muestra un ícono de alerta rojo junto al costo cuando el presupuesto supera la diferencia de la toma.
+- Los formularios de presupuesto ahora resaltan `Costo ARS` en rojo y muestran la alerta `Presupuesto supera diferencia` cuando el costo informado excede la diferencia calculada de la toma.
 - `F. Pedido` pasó a ser el primer campo de ambos formularios de alta, antes de interno o dominio, para que la fecha operativa se complete al iniciar la carga.
 - Se agregaron `Valor info`, `% toma`, `Valor ingreso` y `Diferencia` a los formularios de presupuestos internos y externos. El usuario ingresa los dos primeros y la app calcula, muestra y persiste los dos restantes; además se reorganizaron las filas operativas de taller, km, costo, número, fecha de pedido e ingreso a taller en tres columnas.
 - La app ahora declara explícitamente `public/favicon.ico` en la metadata raíz para que el icono cargado desde `public` se use de forma consistente en el navegador.

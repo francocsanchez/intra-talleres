@@ -64,6 +64,7 @@ import {
   calculateValoresToma,
   formatCurrency,
   formatDate,
+  formatInteger,
   formatShortDate,
   getCalendarMonthKey,
   getCalendarYearKey,
@@ -158,7 +159,7 @@ function createInitialFormState(): FormState {
     km: "",
     costo: "",
     valorInfo: "",
-    porcentajeToma: "",
+    porcentajeToma: "0",
     observaciones: "",
     nroPresupuesto: "",
     prioridad: "",
@@ -180,7 +181,7 @@ function createInitialExternalFormState(): ExternalFormState {
     km: "",
     costo: "",
     valorInfo: "",
-    porcentajeToma: "",
+    porcentajeToma: "0",
     observaciones: "",
     nroPresupuesto: "",
     prioridad: "",
@@ -262,13 +263,13 @@ function buildCategoryCounts(values: Array<string | undefined>, emptyLabel: stri
 function getEstadoTone(estado: PresupuestoEstado) {
   switch (estado) {
     case "Aprobado":
-      return "bg-primary text-primary-foreground";
+      return "bg-emerald-600 text-white";
     case "Rechazado":
       return "bg-destructive text-white";
     case "Revisar":
-      return "bg-secondary text-secondary-foreground";
+      return "bg-zinc-500 text-white";
     default:
-      return "bg-accent text-accent-foreground";
+      return "bg-amber-400 text-amber-950";
   }
 }
 
@@ -1030,6 +1031,11 @@ export function DashboardShell({
     Number(externalForm.valorInfo) || 0,
     Number(externalForm.porcentajeToma) || 0,
   );
+  const presupuestoSuperaDiferencia =
+    Boolean(form.costo) && Number(form.costo) > tomaValores.diferencia;
+  const presupuestoExternoSuperaDiferencia =
+    Boolean(externalForm.costo) &&
+    Number(externalForm.costo) > externalTomaValores.diferencia;
 
   function createPresupuesto() {
     if (!canManagePresupuestos) {
@@ -1603,9 +1609,15 @@ export function DashboardShell({
                                   id="costo"
                                   value={form.costo}
                                   onChange={(event) => updateForm("costo", event.target.value)}
+                                  className={
+                                    presupuestoSuperaDiferencia
+                                      ? "border-destructive text-destructive focus-visible:ring-destructive"
+                                      : ""
+                                  }
                                   type="number"
                                   min="0"
                                   step="0.01"
+                                  required
                                 />
                               </Field>
                               <Field label="Nro presupuesto" htmlFor="nroPresupuesto">
@@ -1691,6 +1703,16 @@ export function DashboardShell({
                                 />
                               </Field>
                             </div>
+
+                            {presupuestoSuperaDiferencia ? (
+                              <div
+                                role="alert"
+                                className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+                              >
+                                <TriangleAlert className="size-4 shrink-0" />
+                                Presupuesto supera diferencia
+                              </div>
+                            ) : null}
 
                             <Field label="Detalle" htmlFor="detalle">
                               <Textarea
@@ -1889,9 +1911,15 @@ export function DashboardShell({
                                 onChange={(event) =>
                                   updateExternalForm("costo", event.target.value)
                                 }
+                                className={
+                                  presupuestoExternoSuperaDiferencia
+                                    ? "border-destructive text-destructive focus-visible:ring-destructive"
+                                    : ""
+                                }
                                 type="number"
                                 min="0"
                                 step="0.01"
+                                required
                               />
                             </Field>
                             <Field
@@ -1988,6 +2016,16 @@ export function DashboardShell({
                               />
                             </Field>
                           </div>
+
+                          {presupuestoExternoSuperaDiferencia ? (
+                            <div
+                              role="alert"
+                              className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+                            >
+                              <TriangleAlert className="size-4 shrink-0" />
+                              Presupuesto supera diferencia
+                            </div>
+                          ) : null}
 
                           <Field label="Detalle" htmlFor="externo-detalle">
                             <Textarea
@@ -2181,8 +2219,22 @@ export function DashboardShell({
                                 </p>
                               </div>
                             </TableCell>
-                            <TableCell>{presupuesto.km}</TableCell>
-                            <TableCell>{formatCurrency(presupuesto.costo)}</TableCell>
+                            <TableCell>{formatInteger(presupuesto.km)}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                {formatCurrency(presupuesto.costo)}
+                                {presupuesto.diferencia !== undefined &&
+                                presupuesto.costo > presupuesto.diferencia ? (
+                                  <span
+                                    className="text-destructive"
+                                    title="Presupuesto supera diferencia"
+                                    aria-label="Presupuesto supera diferencia"
+                                  >
+                                    <TriangleAlert className="size-4" />
+                                  </span>
+                                ) : null}
+                              </div>
+                            </TableCell>
                             <TableCell>{formatCurrency(presupuesto.costoConIva)}</TableCell>
                             <TableCell className="text-xs">
                               {presupuesto.fechaPedido

@@ -6,6 +6,10 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 2,
 });
 
+const integerFormatter = new Intl.NumberFormat("es-AR", {
+  maximumFractionDigits: 0,
+});
+
 const compactDateFormatter = new Intl.DateTimeFormat("es-AR", {
   day: "2-digit",
   month: "2-digit",
@@ -31,6 +35,10 @@ function parseCalendarDate(value: string) {
 
 export function formatCurrency(value: number) {
   return currencyFormatter.format(value);
+}
+
+export function formatInteger(value: number) {
+  return integerFormatter.format(value);
 }
 
 export function formatDate(value?: string) {

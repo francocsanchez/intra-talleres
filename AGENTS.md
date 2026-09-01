@@ -177,6 +177,8 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - `Rechazado`
 - `Revisar`
 
+En la columna de estado, `Aprobado` se representa en verde, `Pendiente` en amarillo, `Rechazado` en rojo y `Revisar` en gris.
+
 ## Endpoints actuales
 
 - `GET /api/unidades?interno=...`
@@ -232,6 +234,9 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - Ambos formularios de alta deben pedir `F. Pedido` y precargarla con la fecha actual local para acelerar la carga operativa.
 - `F. Pedido` debe ser el primer campo visible en ambas altas, antes de `Interno` para unidades del sistema y antes de `Dominio` para unidades externas.
 - Los formularios internos y externos incluyen `Valor info` y `% toma` como carga manual; `Valor ingreso` se calcula como `valorInfo - (valorInfo * porcentajeToma / 100)` y `Diferencia` como `valorInfo - valorIngreso`. Los dos valores calculados son de solo lectura y se persisten al guardar.
+- Si `Costo ARS` es mayor que `Diferencia`, el campo de costo debe resaltarse en rojo y el formulario debe mostrar la alerta `Presupuesto supera diferencia`, sin impedir el alta.
+- La tabla de seguimiento debe mostrar un ícono rojo de alerta junto al costo si supera la diferencia registrada y los kilómetros deben mostrarse con separador de miles, como `45.000`.
+- Los presupuestos históricos sin `Valor info`, `% toma` y `Diferencia` no pueden evaluarse para esta alerta; las altas nuevas deben persistir obligatoriamente esos valores.
 - En los formularios de alta, `Taller`, `KM informado` y `Costo ARS` comparten una fila, al igual que `Nro presupuesto`, `F. Pedido` e `Ingreso a taller` cuando el ancho disponible lo permite.
 - Al cerrar cualquiera de los modales de alta, el formulario debe resetearse completo para no conservar datos de la operación anterior.
 - Los selects de taller dentro de formularios deben mostrar siempre `taller.nombre` como etiqueta visible, nunca el `id` persistido.

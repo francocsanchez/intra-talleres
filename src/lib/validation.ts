@@ -29,7 +29,7 @@ const presupuestoBaseSchema = z.object({
   tallerId: z.string().trim().min(1),
   km: z.coerce.number().int().min(0),
   costo: z.coerce.number().positive(),
-  valorInfo: z.coerce.number().min(0),
+  valorInfo: z.coerce.number().positive("Ingresá el valor info."),
   porcentajeToma: z.coerce.number().min(0).max(100),
   observaciones: z.string().trim().max(500).optional().default(""),
   nroPresupuesto: optionalTextField,

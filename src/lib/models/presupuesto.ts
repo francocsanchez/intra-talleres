@@ -111,6 +111,21 @@ const presupuestoSchema = new Schema(
 
 export type PresupuestoDocument = InferSchemaType<typeof presupuestoSchema>;
 
+const existingPresupuestoModel = models.Presupuesto as
+  | Model<PresupuestoDocument>
+  | undefined;
+
+// Next reutiliza los modelos de Mongoose durante el desarrollo. Agregamos estos
+// paths al modelo existente para que las nuevas altas no descarten los valores
+// de toma hasta que se reinicie el proceso.
+if (existingPresupuestoModel && !existingPresupuestoModel.schema.path("valorInfo")) {
+  existingPresupuestoModel.schema.add({
+    valorInfo: { type: Number, min: 0 },
+    porcentajeToma: { type: Number, min: 0, max: 100 },
+    valorIngreso: { type: Number, min: 0 },
+    diferencia: { type: Number, min: 0 },
+  });
+}
+
 export const PresupuestoModel =
-  (models.Presupuesto as Model<PresupuestoDocument>) ||
-  model<PresupuestoDocument>("Presupuesto", presupuestoSchema);
+  existingPresupuestoModel || model<PresupuestoDocument>("Presupuesto", presupuestoSchema);
