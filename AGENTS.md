@@ -247,7 +247,7 @@ En la columna de estado, `Aprobado` se representa en verde, `Pendiente` en amari
 - La fecha de egreso puede quedar vacía al crear y luego completarse desde la tabla de seguimiento.
 - Desde el modal de gestión debe poder editarse tanto `fechaIngresoTaller` como `fechaEgresoTaller`, y ambas deben poder limpiarse para reflejar unidades que todavía no ingresaron o egresaron.
 - La tabla de seguimiento muestra sus fechas en `dd/mm/yy` para compactar columnas e incluye `D. Reparación`: diferencia de días calendario entre ingreso y egreso, o entre ingreso y hoy si todavía no hay egreso; sin fecha de ingreso debe indicar `Sin ingresar`.
-- Observaciones y detalle se visualizan completos mediante un `dialog` disparado por `Ver más`.
+- `Ver más` abre una ficha completa del presupuesto con unidad, operación, valores, observaciones y detalle.
 - La columna `Observaciones` en la tabla no muestra texto resumido: solo expone el botón `Ver más`.
 - El cambio de estado y la carga de fecha de egreso se realizan desde un único `dialog` de gestión por presupuesto.
 - El modal `Gestionar presupuesto` también permite editar y limpiar `Detalle` y `Observaciones`.

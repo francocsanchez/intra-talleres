@@ -2462,7 +2462,7 @@ export function DashboardShell({
                 }
               }}
             >
-              <DialogContent className="sm:max-w-2xl">
+              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
                   <DialogTitle className="font-heading text-2xl tracking-[-0.04em]">
                     {detailsPresupuesto
@@ -2478,29 +2478,126 @@ export function DashboardShell({
 
                 {detailsPresupuesto ? (
                   <div className="grid gap-4">
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <DetailStat
-                        label="Estado"
-                        value={detailsPresupuesto.estado}
-                      />
-                      <DetailStat
-                        label="Prioridad"
-                        value={detailsPresupuesto.prioridad || "Sin definir"}
-                      />
-                      <DetailStat
-                        label="F. Pedido"
-                        value={formatDate(
-                          detailsPresupuesto.fechaPedido || detailsPresupuesto.createdAt,
-                        )}
-                      />
-                      <DetailStat
-                        label="Egreso"
-                        value={
-                          detailsPresupuesto.fechaEgresoTaller
-                            ? formatDate(detailsPresupuesto.fechaEgresoTaller)
-                            : "Sin fecha"
-                        }
-                      />
+                    <div className="grid gap-2">
+                      <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                        Unidad
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <DetailStat
+                          label="Interno"
+                          value={
+                            detailsPresupuesto.esExterno
+                              ? "Unidad externa"
+                              : detailsPresupuesto.interno
+                          }
+                        />
+                        <DetailStat label="Dominio" value={detailsPresupuesto.dominio} />
+                        <DetailStat label="Marca" value={detailsPresupuesto.marca} />
+                        <DetailStat label="Modelo" value={detailsPresupuesto.modelo} />
+                        <DetailStat
+                          label="KM informado"
+                          value={formatInteger(detailsPresupuesto.km)}
+                        />
+                        <DetailStat label="Taller" value={detailsPresupuesto.tallerNombre} />
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                        Seguimiento
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <DetailStat label="Estado" value={detailsPresupuesto.estado} />
+                        <DetailStat
+                          label="Prioridad"
+                          value={detailsPresupuesto.prioridad || "Sin definir"}
+                        />
+                        <DetailStat
+                          label="Nro presupuesto"
+                          value={detailsPresupuesto.nroPresupuesto || "Sin número"}
+                        />
+                        <DetailStat
+                          label="F. Pedido"
+                          value={formatDate(
+                            detailsPresupuesto.fechaPedido || detailsPresupuesto.createdAt,
+                          )}
+                        />
+                        <DetailStat
+                          label="Ingreso a taller"
+                          value={
+                            detailsPresupuesto.fechaIngresoTaller
+                              ? formatDate(detailsPresupuesto.fechaIngresoTaller)
+                              : "Sin fecha"
+                          }
+                        />
+                        <DetailStat
+                          label="Egreso de taller"
+                          value={
+                            detailsPresupuesto.fechaEgresoTaller
+                              ? formatDate(detailsPresupuesto.fechaEgresoTaller)
+                              : "Sin fecha"
+                          }
+                        />
+                        <DetailStat
+                          label="D. Reparación"
+                          value={(() => {
+                            const diasReparacion = getRepairDuration(
+                              detailsPresupuesto.fechaIngresoTaller,
+                              detailsPresupuesto.fechaEgresoTaller,
+                            );
+
+                            return diasReparacion === null
+                              ? "Sin ingresar"
+                              : `${diasReparacion} ${diasReparacion === 1 ? "día" : "días"}`;
+                          })()}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+                        Valores
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <DetailStat
+                          label="Costo ARS"
+                          value={formatCurrency(detailsPresupuesto.costo)}
+                        />
+                        <DetailStat
+                          label="Costo + IVA"
+                          value={formatCurrency(detailsPresupuesto.costoConIva)}
+                        />
+                        <DetailStat
+                          label="Valor info"
+                          value={
+                            detailsPresupuesto.valorInfo === undefined
+                              ? "Sin información"
+                              : formatCurrency(detailsPresupuesto.valorInfo)
+                          }
+                        />
+                        <DetailStat
+                          label="% toma"
+                          value={
+                            detailsPresupuesto.porcentajeToma === undefined
+                              ? "Sin información"
+                              : `${detailsPresupuesto.porcentajeToma}%`
+                          }
+                        />
+                        <DetailStat
+                          label="Valor ingreso"
+                          value={
+                            detailsPresupuesto.valorIngreso === undefined
+                              ? "Sin información"
+                              : formatCurrency(detailsPresupuesto.valorIngreso)
+                          }
+                        />
+                        <DetailStat
+                          label="Diferencia"
+                          value={
+                            detailsPresupuesto.diferencia === undefined
+                              ? "Sin información"
+                              : formatCurrency(detailsPresupuesto.diferencia)
+                          }
+                        />
+                      </div>
                     </div>
                     <div className="rounded-lg border border-border/70 bg-secondary/25 p-4">
                       <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">

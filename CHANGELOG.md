@@ -2,6 +2,7 @@
 
 ## 2026-09-01
 
+- `Ver más` pasó a mostrar una ficha completa del presupuesto: unidad, taller, kilómetros, estado, prioridad, número, fechas, duración de reparación, importes de costo y todos los valores de toma, además de detalle y observaciones.
 - El modal `Gestionar presupuesto` ahora permite cargar, editar y limpiar `Detalle` y `Observaciones` junto con el estado y las fechas de taller.
 - Los badges de estado en la tabla ahora usan semántica visual operativa: `Aprobado` verde, `Pendiente` amarillo, `Rechazado` rojo y `Revisar` gris.
 - Se garantizó que las nuevas altas persistan los valores de toma aun cuando Mongoose reutilice el modelo durante desarrollo, y `Valor info` pasó a ser obligatorio para que el indicador de costo pueda evaluarse correctamente. Los registros históricos sin datos de toma no se marcan porque no es posible calcular su diferencia real.
