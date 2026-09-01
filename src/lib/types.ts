@@ -58,6 +58,10 @@ export type PresupuestoDTO = {
   km: number;
   costo: number;
   costoConIva: number;
+  valorInfo?: number;
+  porcentajeToma?: number;
+  valorIngreso?: number;
+  diferencia?: number;
   observaciones: string;
   estado: PresupuestoEstado;
   tallerId: string;

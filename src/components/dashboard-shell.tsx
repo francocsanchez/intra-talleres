@@ -61,10 +61,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { PRESUPUESTO_ESTADOS, PRIORIDAD_OPTIONS } from "@/lib/constants";
 import {
   calculateCostoConIva,
+  calculateValoresToma,
   formatCurrency,
   formatDate,
+  formatShortDate,
   getCalendarMonthKey,
   getCalendarYearKey,
+  getRepairDuration,
 } from "@/lib/format";
 import type { AppRole } from "@/lib/auth/central";
 import type {
@@ -95,6 +98,8 @@ type FormState = {
   tallerId: string;
   km: string;
   costo: string;
+  valorInfo: string;
+  porcentajeToma: string;
   observaciones: string;
   nroPresupuesto: string;
   prioridad: string;
@@ -113,6 +118,8 @@ type ExternalFormState = {
   tallerId: string;
   km: string;
   costo: string;
+  valorInfo: string;
+  porcentajeToma: string;
   observaciones: string;
   nroPresupuesto: string;
   prioridad: string;
@@ -150,6 +157,8 @@ function createInitialFormState(): FormState {
     tallerId: "",
     km: "",
     costo: "",
+    valorInfo: "",
+    porcentajeToma: "",
     observaciones: "",
     nroPresupuesto: "",
     prioridad: "",
@@ -170,6 +179,8 @@ function createInitialExternalFormState(): ExternalFormState {
     tallerId: "",
     km: "",
     costo: "",
+    valorInfo: "",
+    porcentajeToma: "",
     observaciones: "",
     nroPresupuesto: "",
     prioridad: "",
@@ -222,6 +233,19 @@ function formatMonthFilterLabel(value: string) {
 
 function getPresupuestoAnalysisDate(presupuesto: PresupuestoDTO) {
   return presupuesto.fechaPedido || presupuesto.createdAt;
+}
+
+function getPresupuestoUnitKey(presupuesto: PresupuestoDTO) {
+  const identificador = (presupuesto.esExterno
+    ? presupuesto.dominio
+    : presupuesto.interno
+  )
+    .trim()
+    .toUpperCase();
+
+  return identificador
+    ? `${presupuesto.esExterno ? "externa" : "interna"}:${identificador}`
+    : `presupuesto:${presupuesto.id}`;
 }
 
 function buildCategoryCounts(values: Array<string | undefined>, emptyLabel: string) {
@@ -316,6 +340,9 @@ export function DashboardShell({
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isExternalCreateDialogOpen, setIsExternalCreateDialogOpen] = useState(false);
   const [detailsPresupuesto, setDetailsPresupuesto] = useState<PresupuestoDTO | null>(null);
+  const [historyPresupuesto, setHistoryPresupuesto] = useState<PresupuestoDTO | null>(null);
+  const [historyPresupuestos, setHistoryPresupuestos] = useState<PresupuestoDTO[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [managePresupuesto, setManagePresupuesto] = useState<PresupuestoDTO | null>(null);
   const [manageEstadoDraft, setManageEstadoDraft] = useState<PresupuestoEstado>("Pendiente");
   const [manageIngresoDraft, setManageIngresoDraft] = useState("");
@@ -369,6 +396,33 @@ export function DashboardShell({
         resolvedDashboardMonth,
     );
   }, [presupuestos, resolvedDashboardMonth]);
+  const historySummary = useMemo(
+    () =>
+      historyPresupuestos.reduce(
+        (summary, presupuesto) => {
+          summary.total.costo += presupuesto.costo;
+          summary.total.costoConIva += presupuesto.costoConIva;
+
+          if (presupuesto.estado === "Aprobado") {
+            summary.aprobado.costo += presupuesto.costo;
+            summary.aprobado.costoConIva += presupuesto.costoConIva;
+          }
+
+          if (presupuesto.estado === "Pendiente" || presupuesto.estado === "Revisar") {
+            summary.pendiente.costo += presupuesto.costo;
+            summary.pendiente.costoConIva += presupuesto.costoConIva;
+          }
+
+          return summary;
+        },
+        {
+          pendiente: { costo: 0, costoConIva: 0 },
+          aprobado: { costo: 0, costoConIva: 0 },
+          total: { costo: 0, costoConIva: 0 },
+        },
+      ),
+    [historyPresupuestos],
+  );
 
   async function refreshPresupuestos() {
     const params = new URLSearchParams();
@@ -392,6 +446,34 @@ export function DashboardShell({
           ? error.message
           : "No pudimos refrescar la lista de presupuestos.",
       );
+    }
+  }
+
+  async function openPresupuestoHistory(presupuesto: PresupuestoDTO) {
+    const unidadKey = getPresupuestoUnitKey(presupuesto);
+    const presupuestosVisibles = presupuestos.filter(
+      (item) => getPresupuestoUnitKey(item) === unidadKey,
+    );
+
+    setHistoryPresupuesto(presupuesto);
+    setHistoryPresupuestos(presupuestosVisibles);
+    setIsLoadingHistory(true);
+
+    try {
+      const data = await parseJsonResponse<{ presupuestos: PresupuestoDTO[] }>(
+        await fetch("/api/presupuestos", { cache: "no-store" }),
+      );
+      setHistoryPresupuestos(
+        data.presupuestos.filter((item) => getPresupuestoUnitKey(item) === unidadKey),
+      );
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "No pudimos consultar el historial de presupuestos de la unidad.",
+      );
+    } finally {
+      setIsLoadingHistory(false);
     }
   }
 
@@ -940,6 +1022,14 @@ export function DashboardShell({
     talleres.find((taller) => taller.id === form.tallerId)?.nombre ?? "";
   const selectedExternalTallerName =
     talleres.find((taller) => taller.id === externalForm.tallerId)?.nombre ?? "";
+  const tomaValores = calculateValoresToma(
+    Number(form.valorInfo) || 0,
+    Number(form.porcentajeToma) || 0,
+  );
+  const externalTomaValores = calculateValoresToma(
+    Number(externalForm.valorInfo) || 0,
+    Number(externalForm.porcentajeToma) || 0,
+  );
 
   function createPresupuesto() {
     if (!canManagePresupuestos) {
@@ -1185,7 +1275,7 @@ export function DashboardShell({
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="mx-auto flex w-full max-w-[1720px] flex-col gap-4 px-0 pb-3 md:pb-4 lg:pb-5">
+      <div className="flex w-full flex-col gap-4 px-0 pb-3 md:pb-4 lg:pb-5">
         <header className="navbar">
           <div className="navbar__start">
             <Link className="navbar__brand" href="/dashboard" aria-label="Intra Talleres, inicio">
@@ -1420,6 +1510,16 @@ export function DashboardShell({
                           </DialogHeader>
 
                           <div className="space-y-4">
+                            <Field label="F. Pedido" htmlFor="fechaPedido">
+                              <Input
+                                id="fechaPedido"
+                                value={form.fechaPedido}
+                                onChange={(event) =>
+                                  updateForm("fechaPedido", event.target.value)
+                                }
+                                type="date"
+                              />
+                            </Field>
                             <div className="grid gap-2">
                               <Label htmlFor="interno">Interno</Label>
                               <div className="flex gap-2">
@@ -1467,8 +1567,8 @@ export function DashboardShell({
                               </div>
                             </div>
 
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <div className="grid gap-2 sm:col-span-2">
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              <div className="grid gap-2">
                                 <Label htmlFor="taller">Taller</Label>
                                 <Select
                                   value={form.tallerId}
@@ -1517,12 +1617,12 @@ export function DashboardShell({
                                   }
                                 />
                               </Field>
-                              <Field label="F. Pedido" htmlFor="fechaPedido">
+                              <Field label="Ingreso a taller" htmlFor="fechaIngresoTaller">
                                 <Input
-                                  id="fechaPedido"
-                                  value={form.fechaPedido}
+                                  id="fechaIngresoTaller"
+                                  value={form.fechaIngresoTaller}
                                   onChange={(event) =>
-                                    updateForm("fechaPedido", event.target.value)
+                                    updateForm("fechaIngresoTaller", event.target.value)
                                   }
                                   type="date"
                                 />
@@ -1550,14 +1650,44 @@ export function DashboardShell({
                                   </SelectContent>
                                 </Select>
                               </Field>
-                              <Field label="Ingreso a taller" htmlFor="fechaIngresoTaller">
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                              <Field label="Valor info" htmlFor="valorInfo">
                                 <Input
-                                  id="fechaIngresoTaller"
-                                  value={form.fechaIngresoTaller}
+                                  id="valorInfo"
+                                  value={form.valorInfo}
+                                  onChange={(event) => updateForm("valorInfo", event.target.value)}
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                />
+                              </Field>
+                              <Field label="% toma" htmlFor="porcentajeToma">
+                                <Input
+                                  id="porcentajeToma"
+                                  value={form.porcentajeToma}
                                   onChange={(event) =>
-                                    updateForm("fechaIngresoTaller", event.target.value)
+                                    updateForm("porcentajeToma", event.target.value)
                                   }
-                                  type="date"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                />
+                              </Field>
+                              <Field label="Valor ingreso" htmlFor="valorIngreso">
+                                <Input
+                                  id="valorIngreso"
+                                  value={formatCurrency(tomaValores.valorIngreso)}
+                                  readOnly
+                                />
+                              </Field>
+                              <Field label="Diferencia" htmlFor="diferencia">
+                                <Input
+                                  id="diferencia"
+                                  value={formatCurrency(tomaValores.diferencia)}
+                                  readOnly
                                 />
                               </Field>
                             </div>
@@ -1648,6 +1778,16 @@ export function DashboardShell({
                         </DialogHeader>
 
                         <div className="space-y-4">
+                          <Field label="F. Pedido" htmlFor="externo-fechaPedido">
+                            <Input
+                              id="externo-fechaPedido"
+                              value={externalForm.fechaPedido}
+                              onChange={(event) =>
+                                updateExternalForm("fechaPedido", event.target.value)
+                              }
+                              type="date"
+                            />
+                          </Field>
                           <div className="grid gap-2">
                             <Label htmlFor="externo-dominio">Dominio</Label>
                             <Input
@@ -1660,7 +1800,7 @@ export function DashboardShell({
                             />
                           </div>
 
-                          <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             <Field label="Marca" htmlFor="externo-marca">
                               <Input
                                 id="externo-marca"
@@ -1708,7 +1848,7 @@ export function DashboardShell({
                               </datalist>
                             </Field>
 
-                            <div className="grid gap-2 sm:col-span-2">
+                            <div className="grid gap-2">
                               <Label htmlFor="externo-taller">Taller</Label>
                               <Select
                                 value={externalForm.tallerId}
@@ -1766,12 +1906,18 @@ export function DashboardShell({
                                 }
                               />
                             </Field>
-                            <Field label="F. Pedido" htmlFor="externo-fechaPedido">
+                            <Field
+                              label="Ingreso a taller"
+                              htmlFor="externo-fechaIngresoTaller"
+                            >
                               <Input
-                                id="externo-fechaPedido"
-                                value={externalForm.fechaPedido}
+                                id="externo-fechaIngresoTaller"
+                                value={externalForm.fechaIngresoTaller}
                                 onChange={(event) =>
-                                  updateExternalForm("fechaPedido", event.target.value)
+                                  updateExternalForm(
+                                    "fechaIngresoTaller",
+                                    event.target.value,
+                                  )
                                 }
                                 type="date"
                               />
@@ -1799,20 +1945,46 @@ export function DashboardShell({
                                 </SelectContent>
                               </Select>
                             </Field>
-                            <Field
-                              label="Ingreso a taller"
-                              htmlFor="externo-fechaIngresoTaller"
-                            >
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <Field label="Valor info" htmlFor="externo-valorInfo">
                               <Input
-                                id="externo-fechaIngresoTaller"
-                                value={externalForm.fechaIngresoTaller}
+                                id="externo-valorInfo"
+                                value={externalForm.valorInfo}
                                 onChange={(event) =>
-                                  updateExternalForm(
-                                    "fechaIngresoTaller",
-                                    event.target.value,
-                                  )
+                                  updateExternalForm("valorInfo", event.target.value)
                                 }
-                                type="date"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                              />
+                            </Field>
+                            <Field label="% toma" htmlFor="externo-porcentajeToma">
+                              <Input
+                                id="externo-porcentajeToma"
+                                value={externalForm.porcentajeToma}
+                                onChange={(event) =>
+                                  updateExternalForm("porcentajeToma", event.target.value)
+                                }
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                              />
+                            </Field>
+                            <Field label="Valor ingreso" htmlFor="externo-valorIngreso">
+                              <Input
+                                id="externo-valorIngreso"
+                                value={formatCurrency(externalTomaValores.valorIngreso)}
+                                readOnly
+                              />
+                            </Field>
+                            <Field label="Diferencia" htmlFor="externo-diferencia">
+                              <Input
+                                id="externo-diferencia"
+                                value={formatCurrency(externalTomaValores.diferencia)}
+                                readOnly
                               />
                             </Field>
                           </div>
@@ -1961,7 +2133,7 @@ export function DashboardShell({
 
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <Table className="min-w-[1220px]">
+                  <Table className="min-w-[1360px]">
                     <TableHeader>
                       <TableRow className="bg-secondary/40">
                         <TableHead>Estado</TableHead>
@@ -1974,8 +2146,10 @@ export function DashboardShell({
                         <TableHead>Costo</TableHead>
                         <TableHead>Costo + IVA</TableHead>
                         <TableHead>F. Pedido</TableHead>
+                        <TableHead>Presupuestos</TableHead>
                         <TableHead>Ingreso</TableHead>
                         <TableHead>Egreso</TableHead>
+                        <TableHead>D. Reparación</TableHead>
                         <TableHead>Gestión</TableHead>
                         <TableHead>Observaciones</TableHead>
                       </TableRow>
@@ -2012,18 +2186,45 @@ export function DashboardShell({
                             <TableCell>{formatCurrency(presupuesto.costoConIva)}</TableCell>
                             <TableCell className="text-xs">
                               {presupuesto.fechaPedido
-                                ? formatDate(presupuesto.fechaPedido)
-                                : formatDate(presupuesto.createdAt)}
+                                ? formatShortDate(presupuesto.fechaPedido)
+                                : formatShortDate(presupuesto.createdAt)}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openPresupuestoHistory(presupuesto)}
+                              >
+                                <FileText className="size-4" />
+                                Ver presupuestos
+                              </Button>
                             </TableCell>
                             <TableCell className="text-xs">
                               {presupuesto.fechaIngresoTaller
-                                ? formatDate(presupuesto.fechaIngresoTaller)
+                                ? formatShortDate(presupuesto.fechaIngresoTaller)
                                 : "Sin fecha"}
                             </TableCell>
                             <TableCell className="text-xs">
                               {presupuesto.fechaEgresoTaller
-                                ? formatDate(presupuesto.fechaEgresoTaller)
+                                ? formatShortDate(presupuesto.fechaEgresoTaller)
                                 : "Sin fecha"}
+                            </TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {(() => {
+                                const diasReparacion = getRepairDuration(
+                                  presupuesto.fechaIngresoTaller,
+                                  presupuesto.fechaEgresoTaller,
+                                );
+
+                                if (diasReparacion === null) {
+                                  return "Sin ingresar";
+                                }
+
+                                return `${diasReparacion} ${
+                                  diasReparacion === 1 ? "día" : "días"
+                                }`;
+                              })()}
                             </TableCell>
                             <TableCell>
                               {canManagePresupuestos ? (
@@ -2058,7 +2259,7 @@ export function DashboardShell({
                       ) : (
                         <TableRow>
                           <TableCell
-                          colSpan={14}
+                          colSpan={15}
                           className="h-32 text-center text-sm text-muted-foreground"
                         >
                             {isRefreshing
@@ -2240,6 +2441,92 @@ export function DashboardShell({
                       <p className="mt-2 whitespace-pre-wrap text-sm">
                         {detailsPresupuesto.detalle || "Sin detalle"}
                       </p>
+                    </div>
+                  </div>
+                ) : null}
+              </DialogContent>
+            </Dialog>
+
+            <Dialog
+              open={Boolean(historyPresupuesto)}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setHistoryPresupuesto(null);
+                  setHistoryPresupuestos([]);
+                }
+              }}
+            >
+              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle className="font-heading text-2xl tracking-[-0.04em]">
+                    Presupuestos de la unidad
+                  </DialogTitle>
+                  <DialogDescription>
+                    {historyPresupuesto
+                      ? historyPresupuesto.esExterno
+                        ? `Unidad externa · Dominio ${historyPresupuesto.dominio}`
+                        : `Interno ${historyPresupuesto.interno} · ${historyPresupuesto.dominio}`
+                      : "Historial de presupuestos de la unidad."}
+                  </DialogDescription>
+                </DialogHeader>
+
+                {historyPresupuesto ? (
+                  <div className="space-y-3">
+                    {isLoadingHistory ? (
+                      <p className="text-sm text-muted-foreground">
+                        Consultando presupuestos asociados...
+                      </p>
+                    ) : null}
+                    <div className="overflow-x-auto rounded-lg border border-border/70">
+                      <Table className="min-w-[680px]">
+                        <TableHeader>
+                          <TableRow className="bg-secondary/40">
+                            <TableHead>F. Pedido</TableHead>
+                            <TableHead>Nro.</TableHead>
+                            <TableHead>Taller</TableHead>
+                            <TableHead>Estado</TableHead>
+                            <TableHead className="text-right">Costo</TableHead>
+                            <TableHead className="text-right">Costo + IVA</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {historyPresupuestos.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>{formatShortDate(getPresupuestoAnalysisDate(item))}</TableCell>
+                              <TableCell>{item.nroPresupuesto || "Sin número"}</TableCell>
+                              <TableCell>{item.tallerNombre}</TableCell>
+                              <TableCell>
+                                <Badge className={getEstadoTone(item.estado)}>
+                                  {item.estado}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrency(item.costo)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrency(item.costoConIva)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <HistoryTotal
+                        label="Pendiente de aprobación"
+                        costo={historySummary.pendiente.costo}
+                        costoConIva={historySummary.pendiente.costoConIva}
+                      />
+                      <HistoryTotal
+                        label="Total aprobado"
+                        costo={historySummary.aprobado.costo}
+                        costoConIva={historySummary.aprobado.costoConIva}
+                      />
+                      <HistoryTotal
+                        label={`Total de ${historyPresupuestos.length} presupuesto${historyPresupuestos.length === 1 ? "" : "s"}`}
+                        costo={historySummary.total.costo}
+                        costoConIva={historySummary.total.costoConIva}
+                      />
                     </div>
                   </div>
                 ) : null}
@@ -2482,6 +2769,28 @@ function DetailStat({
         {label}
       </p>
       <p className="mt-1 text-sm font-medium">{value}</p>
+    </div>
+  );
+}
+
+function HistoryTotal({
+  label,
+  costo,
+  costoConIva,
+}: {
+  label: string;
+  costo: number;
+  costoConIva: number;
+}) {
+  return (
+    <div className="rounded-lg border border-border/70 bg-secondary/25 px-3 py-2.5">
+      <p className="text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-semibold tabular-nums">{formatCurrency(costo)}</p>
+      <p className="text-xs text-muted-foreground">
+        {formatCurrency(costoConIva)} con IVA
+      </p>
     </div>
   );
 }

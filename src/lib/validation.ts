@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { PRESUPUESTO_ESTADOS, PRIORIDAD_OPTIONS } from "@/lib/constants";
-import { calculateCostoConIva } from "@/lib/format";
+import { calculateCostoConIva, calculateValoresToma } from "@/lib/format";
 
 const optionalTextField = z
   .string()
@@ -29,6 +29,8 @@ const presupuestoBaseSchema = z.object({
   tallerId: z.string().trim().min(1),
   km: z.coerce.number().int().min(0),
   costo: z.coerce.number().positive(),
+  valorInfo: z.coerce.number().min(0),
+  porcentajeToma: z.coerce.number().min(0).max(100),
   observaciones: z.string().trim().max(500).optional().default(""),
   nroPresupuesto: optionalTextField,
   prioridad: z.enum(PRIORIDAD_OPTIONS).optional(),
@@ -107,6 +109,7 @@ export function normalizeCreatePresupuestoPayload(
   return {
     ...parsed,
     costoConIva: calculateCostoConIva(parsed.costo),
+    ...calculateValoresToma(parsed.valorInfo, parsed.porcentajeToma),
     fechaPedido: parsed.fechaPedido,
     fechaIngresoTaller: parsed.fechaIngresoTaller || undefined,
     fechaEgresoTaller: parsed.fechaEgresoTaller || undefined,

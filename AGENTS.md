@@ -155,6 +155,10 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
   - `km`
   - `costo`
   - `costoConIva`
+  - `valorInfo`
+  - `porcentajeToma`
+  - `valorIngreso`
+  - `diferencia`
   - `observaciones`
   - `estado`
   - `tallerId`
@@ -211,10 +215,12 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - El contenedor exterior del navbar debe comportarse como una franja superior integrada, sin sombra ni marco redondeado cuando la referencia objetivo no sea una card.
 - La tipografía base vigente del proyecto es `Roboto`; cuando el usuario comparta una referencia cerrada de navbar, se deben respetar sus métricas CSS antes que reinterpretarlas.
 - Dentro del navbar deben evitarse contenedores secundarios con aspecto de card salvo en el item activo; la navegación base debe sentirse lineal y liviana.
+- Las vistas de la aplicación deben utilizar siempre todo el ancho disponible de la pantalla; no se deben aplicar límites máximos al contenedor principal de una vista.
 
 ## Reglas UI actuales
 
 - El hero inicial fue eliminado.
+- El favicon operativo de la aplicación debe salir de `public/favicon.ico` y quedar declarado en la metadata raíz de Next para que se refleje en todas las vistas.
 - La prioridad del presupuesto se carga mediante select cerrado con estas opciones:
   - `Alta`
   - `Media`
@@ -224,6 +230,9 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
   - una para unidades del sistema buscando por `interno`
   - otra para unidades externas sin `interno`
 - Ambos formularios de alta deben pedir `F. Pedido` y precargarla con la fecha actual local para acelerar la carga operativa.
+- `F. Pedido` debe ser el primer campo visible en ambas altas, antes de `Interno` para unidades del sistema y antes de `Dominio` para unidades externas.
+- Los formularios internos y externos incluyen `Valor info` y `% toma` como carga manual; `Valor ingreso` se calcula como `valorInfo - (valorInfo * porcentajeToma / 100)` y `Diferencia` como `valorInfo - valorIngreso`. Los dos valores calculados son de solo lectura y se persisten al guardar.
+- En los formularios de alta, `Taller`, `KM informado` y `Costo ARS` comparten una fila, al igual que `Nro presupuesto`, `F. Pedido` e `Ingreso a taller` cuando el ancho disponible lo permite.
 - Al cerrar cualquiera de los modales de alta, el formulario debe resetearse completo para no conservar datos de la operación anterior.
 - Los selects de taller dentro de formularios deben mostrar siempre `taller.nombre` como etiqueta visible, nunca el `id` persistido.
 - En presupuestos externos, la marca y el modelo deben seleccionarse desde el catálogo SQL del sistema y no como texto libre.
@@ -232,9 +241,12 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - Si la carga del catálogo externo se recupera correctamente luego de un fallo previo, el mensaje global de error no debe persistir visible.
 - La fecha de egreso puede quedar vacía al crear y luego completarse desde la tabla de seguimiento.
 - Desde el modal de gestión debe poder editarse tanto `fechaIngresoTaller` como `fechaEgresoTaller`, y ambas deben poder limpiarse para reflejar unidades que todavía no ingresaron o egresaron.
+- La tabla de seguimiento muestra sus fechas en `dd/mm/yy` para compactar columnas e incluye `D. Reparación`: diferencia de días calendario entre ingreso y egreso, o entre ingreso y hoy si todavía no hay egreso; sin fecha de ingreso debe indicar `Sin ingresar`.
 - Observaciones y detalle se visualizan completos mediante un `dialog` disparado por `Ver más`.
 - La columna `Observaciones` en la tabla no muestra texto resumido: solo expone el botón `Ver más`.
 - El cambio de estado y la carga de fecha de egreso se realizan desde un único `dialog` de gestión por presupuesto.
+- La tabla de seguimiento incluye una columna `Presupuestos` que abre un dialog con todas las cotizaciones de la misma unidad, identificada por interno o por dominio si es externa, y sus totales acumulados de costo y costo con IVA.
+- El resumen del historial de presupuestos debe distinguir los montos pendientes de aprobación (`Pendiente` y `Revisar`), los montos aprobados y el total general, todos con valores netos y con IVA.
 
 ## Dashboard actual
 

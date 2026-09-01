@@ -50,6 +50,10 @@ function serializePresupuesto(presupuesto: {
   km: number;
   costo: number;
   costoConIva: number;
+  valorInfo?: number | null;
+  porcentajeToma?: number | null;
+  valorIngreso?: number | null;
+  diferencia?: number | null;
   observaciones: string;
   estado: PresupuestoDTO["estado"];
   tallerId: { toString(): string };
@@ -73,6 +77,10 @@ function serializePresupuesto(presupuesto: {
     km: presupuesto.km,
     costo: presupuesto.costo,
     costoConIva: presupuesto.costoConIva,
+    valorInfo: presupuesto.valorInfo ?? undefined,
+    porcentajeToma: presupuesto.porcentajeToma ?? undefined,
+    valorIngreso: presupuesto.valorIngreso ?? undefined,
+    diferencia: presupuesto.diferencia ?? undefined,
     observaciones: presupuesto.observaciones,
     estado: presupuesto.estado,
     tallerId: presupuesto.tallerId.toString(),
@@ -210,6 +218,10 @@ export async function createPresupuestoRecord(input: {
   km: number;
   costo: number;
   costoConIva: number;
+  valorInfo: number;
+  porcentajeToma: number;
+  valorIngreso: number;
+  diferencia: number;
   observaciones: string;
   estado: PresupuestoDTO["estado"];
   tallerId: string;

@@ -1,7 +1,17 @@
 # Changelog
 
+## 2026-09-01
+
+- `F. Pedido` pasó a ser el primer campo de ambos formularios de alta, antes de interno o dominio, para que la fecha operativa se complete al iniciar la carga.
+- Se agregaron `Valor info`, `% toma`, `Valor ingreso` y `Diferencia` a los formularios de presupuestos internos y externos. El usuario ingresa los dos primeros y la app calcula, muestra y persiste los dos restantes; además se reorganizaron las filas operativas de taller, km, costo, número, fecha de pedido e ingreso a taller en tres columnas.
+- La app ahora declara explícitamente `public/favicon.ico` en la metadata raíz para que el icono cargado desde `public` se use de forma consistente en el navegador.
+
 ## 2026-08-31
 
+- El historial de presupuestos por unidad ahora diferencia el monto pendiente de aprobación (`Pendiente` y `Revisar`) del monto total aprobado, conservando además el total general e informando valores netos y con IVA.
+- La tabla de seguimiento incorpora la columna `Presupuestos`, que abre un historial de todas las cotizaciones de la misma unidad, agrupadas por interno o dominio externo, con total de costo y costo con IVA acumulados.
+- Se eliminó el límite de ancho de las vistas de la aplicación para que Dashboard, Presupuestos, Configuración y acceso denegado utilicen siempre todo el ancho disponible de pantalla.
+- La tabla de seguimiento ahora muestra `F. Pedido`, ingreso y egreso en formato corto `dd/mm/yy`, e incorpora `D. Reparación`: calcula días calendario entre ingreso y egreso, continúa el conteo hasta hoy mientras no haya egreso y muestra `Sin ingresar` cuando aún no existe fecha de ingreso.
 - El modal `Gestionar presupuesto` ahora permite editar y limpiar tanto la fecha de ingreso como la fecha de egreso del taller, cubriendo también unidades que todavía no ingresaron.
 - Se corrigió el parseo de fechas calendario para que `F. Pedido` y otras fechas tipo `YYYY-MM-DD` no se desplacen por zona horaria y un presupuesto del `2026-06-01` siga computando en junio.
 - Se ajustó `tsconfig.json` para que el build no dependa de tipos transitorios generados en `.next/dev`, evitando falsos errores de TypeScript ajenos al código fuente.

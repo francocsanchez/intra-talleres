@@ -44,6 +44,23 @@ const presupuestoSchema = new Schema(
       required: true,
       min: 0,
     },
+    valorInfo: {
+      type: Number,
+      min: 0,
+    },
+    porcentajeToma: {
+      type: Number,
+      min: 0,
+      max: 100,
+    },
+    valorIngreso: {
+      type: Number,
+      min: 0,
+    },
+    diferencia: {
+      type: Number,
+      min: 0,
+    },
     observaciones: {
       type: String,
       default: "",
