@@ -267,6 +267,8 @@ export async function updatePresupuestoRecord(
     estado?: PresupuestoDTO["estado"];
     fechaIngresoTaller?: string;
     fechaEgresoTaller?: string;
+    detalle?: string;
+    observaciones?: string;
   },
 ) {
   await connectToMongo();
@@ -283,6 +285,14 @@ export async function updatePresupuestoRecord(
 
   if (input.fechaEgresoTaller !== undefined) {
     payload.fechaEgresoTaller = input.fechaEgresoTaller || null;
+  }
+
+  if (input.detalle !== undefined) {
+    payload.detalle = input.detalle;
+  }
+
+  if (input.observaciones !== undefined) {
+    payload.observaciones = input.observaciones;
   }
 
   const presupuesto = await PresupuestoModel.findByIdAndUpdate(

@@ -70,12 +70,16 @@ export const updatePresupuestoSchema = z
     estado: z.enum(PRESUPUESTO_ESTADOS).optional(),
     fechaIngresoTaller: z.string().trim().optional(),
     fechaEgresoTaller: z.string().trim().optional(),
+    detalle: z.string().trim().max(250).optional(),
+    observaciones: z.string().trim().max(500).optional(),
   })
   .refine(
     (data) =>
       data.estado !== undefined ||
       data.fechaIngresoTaller !== undefined ||
-      data.fechaEgresoTaller !== undefined,
+      data.fechaEgresoTaller !== undefined ||
+      data.detalle !== undefined ||
+      data.observaciones !== undefined,
     {
       message: "No hay cambios para guardar.",
     },

@@ -2,6 +2,7 @@
 
 ## 2026-09-01
 
+- El modal `Gestionar presupuesto` ahora permite cargar, editar y limpiar `Detalle` y `Observaciones` junto con el estado y las fechas de taller.
 - Los badges de estado en la tabla ahora usan semántica visual operativa: `Aprobado` verde, `Pendiente` amarillo, `Rechazado` rojo y `Revisar` gris.
 - Se garantizó que las nuevas altas persistan los valores de toma aun cuando Mongoose reutilice el modelo durante desarrollo, y `Valor info` pasó a ser obligatorio para que el indicador de costo pueda evaluarse correctamente. Los registros históricos sin datos de toma no se marcan porque no es posible calcular su diferencia real.
 - La tabla de seguimiento ahora formatea los kilómetros con separador de miles y muestra un ícono de alerta rojo junto al costo cuando el presupuesto supera la diferencia de la toma.

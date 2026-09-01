@@ -348,6 +348,8 @@ export function DashboardShell({
   const [manageEstadoDraft, setManageEstadoDraft] = useState<PresupuestoEstado>("Pendiente");
   const [manageIngresoDraft, setManageIngresoDraft] = useState("");
   const [manageEgresoDraft, setManageEgresoDraft] = useState("");
+  const [manageDetalleDraft, setManageDetalleDraft] = useState("");
+  const [manageObservacionesDraft, setManageObservacionesDraft] = useState("");
   const [tallerForm, setTallerForm] = useState<TallerFormState>(initialTallerFormState);
   const [editingTallerId, setEditingTallerId] = useState<string | null>(null);
   const [isSubmitting, startSubmitTransition] = useTransition();
@@ -1115,6 +1117,8 @@ export function DashboardShell({
     setManageEstadoDraft(presupuesto.estado);
     setManageIngresoDraft(presupuesto.fechaIngresoTaller?.slice(0, 10) ?? "");
     setManageEgresoDraft(presupuesto.fechaEgresoTaller?.slice(0, 10) ?? "");
+    setManageDetalleDraft(presupuesto.detalle ?? "");
+    setManageObservacionesDraft(presupuesto.observaciones ?? "");
   }
 
   function savePresupuestoManagement() {
@@ -1138,6 +1142,8 @@ export function DashboardShell({
             estado: manageEstadoDraft,
             fechaIngresoTaller: manageIngresoDraft,
             fechaEgresoTaller: manageEgresoDraft,
+            detalle: manageDetalleDraft,
+            observaciones: manageObservacionesDraft,
           }),
         });
         const data = await parseJsonResponse<{ presupuesto: PresupuestoDTO }>(response);
@@ -1147,12 +1153,12 @@ export function DashboardShell({
           ),
         );
         setManagePresupuesto(null);
-        setFeedback("Estado, ingreso y egreso actualizados.");
+        setFeedback("Presupuesto actualizado.");
       } catch (error) {
         setFeedback(
           error instanceof Error
             ? error.message
-            : "No pudimos actualizar el estado, ingreso y egreso.",
+            : "No pudimos actualizar el presupuesto.",
         );
       }
     });
@@ -2334,7 +2340,7 @@ export function DashboardShell({
                 }
               }}
             >
-              <DialogContent className="sm:max-w-lg">
+              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
                   <DialogTitle className="font-heading text-2xl tracking-[-0.04em]">
                     Gestionar presupuesto
@@ -2385,6 +2391,24 @@ export function DashboardShell({
                         />
                       </Field>
                     </div>
+                    <Field label="Detalle" htmlFor="manage-detalle">
+                      <Textarea
+                        id="manage-detalle"
+                        value={manageDetalleDraft}
+                        onChange={(event) => setManageDetalleDraft(event.target.value)}
+                        rows={3}
+                        placeholder="Trabajo presupuestado o reparación a considerar"
+                      />
+                    </Field>
+                    <Field label="Observaciones" htmlFor="manage-observaciones">
+                      <Textarea
+                        id="manage-observaciones"
+                        value={manageObservacionesDraft}
+                        onChange={(event) => setManageObservacionesDraft(event.target.value)}
+                        rows={3}
+                        placeholder="Notas internas, valor de toma o comentarios del caso"
+                      />
+                    </Field>
                     <div className="rounded-lg border border-border/70 bg-secondary/25 p-4">
                       <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
                         Estado actual
