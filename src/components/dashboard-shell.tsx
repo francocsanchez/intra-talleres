@@ -327,6 +327,9 @@ export function DashboardShell({
     ),
   ).sort((a, b) => b.localeCompare(a));
   const [presupuestos, setPresupuestos] = useState(initialPresupuestos);
+  const [annualRepairPresupuestos, setAnnualRepairPresupuestos] = useState<
+    PresupuestoDTO[]
+  >([]);
   const [talleres, setTalleres] = useState(initialTalleres);
   const [dashboardMonth, setDashboardMonth] = useState<string>(
     initialDashboardMonths[0] ?? "all",
@@ -438,6 +441,89 @@ export function DashboardShell({
     (currentPresupuestosPage - 1) * PRESUPUESTOS_PER_PAGE,
     currentPresupuestosPage * PRESUPUESTOS_PER_PAGE,
   );
+  const annualRepairOption = useMemo<DashboardChartOption>(() => {
+    const monthlyRepairs = new Map<string, { totalDays: number; count: number }>();
+
+    for (const presupuesto of annualRepairPresupuestos) {
+      if (presupuesto.estado !== "Aprobado" || !presupuesto.fechaIngresoTaller) {
+        continue;
+      }
+
+      const repairDays = getRepairDuration(
+        presupuesto.fechaIngresoTaller,
+        presupuesto.fechaEgresoTaller,
+      );
+
+      if (repairDays === null) {
+        continue;
+      }
+
+      const monthKey = getCalendarMonthKey(getPresupuestoAnalysisDate(presupuesto));
+      const currentMonth = monthlyRepairs.get(monthKey) || { totalDays: 0, count: 0 };
+
+      currentMonth.totalDays += repairDays;
+      currentMonth.count += 1;
+      monthlyRepairs.set(monthKey, currentMonth);
+    }
+
+    const months = Array.from(monthlyRepairs.keys()).sort((a, b) => a.localeCompare(b));
+    const averageDays = months.map((month) => {
+      const bucket = monthlyRepairs.get(month)!;
+      return Number((bucket.totalDays / bucket.count).toFixed(1));
+    });
+
+    return {
+      color: ["#171717"],
+      grid: { top: 36, left: 44, right: 28, bottom: 64, containLabel: true },
+      tooltip: {
+        trigger: "axis",
+        formatter: (params: TopLevelFormatterParams) => {
+          const items = Array.isArray(params) ? params : [params];
+          const item = items[0];
+          const index = Number(item?.dataIndex ?? 0);
+          const bucket = monthlyRepairs.get(months[index]);
+          const days = averageDays[index];
+
+          return [
+            String(item?.name || ""),
+            `Promedio: ${days} ${days === 1 ? "día" : "días"}`,
+            `Reparaciones: ${bucket?.count ?? 0}`,
+          ].join("<br/>");
+        },
+      },
+      xAxis: {
+        type: "category",
+        data: months.map((month) => formatMonthFilterLabel(month)),
+        axisTick: { show: false },
+        axisLine: { lineStyle: { color: "#d9d9d9" } },
+        axisLabel: { fontSize: 10, interval: 0, rotate: 18 },
+      },
+      yAxis: {
+        type: "value",
+        name: "Días",
+        min: 0,
+        splitLine: { lineStyle: { color: "#ececec" } },
+        axisLabel: { fontSize: 11, formatter: "{value} d" },
+      },
+      series: [
+        {
+          name: "Promedio de reparación",
+          type: "line",
+          smooth: true,
+          symbol: "circle",
+          symbolSize: 8,
+          lineStyle: { width: 2 },
+          label: {
+            show: true,
+            position: "top",
+            fontSize: 11,
+            formatter: "{c} días",
+          },
+          data: averageDays,
+        },
+      ],
+    };
+  }, [annualRepairPresupuestos]);
 
   async function refreshPresupuestos() {
     const params = new URLSearchParams();
@@ -854,6 +940,40 @@ export function DashboardShell({
   }, [currentView, filters.estado, filters.tallerId, deferredDominio, deferredInterno]);
 
   useEffect(() => {
+    if (currentView !== "presupuestos") {
+      return;
+    }
+
+    let isCurrent = true;
+
+    async function loadAnnualRepairPresupuestos() {
+      try {
+        const data = await parseJsonResponse<{ presupuestos: PresupuestoDTO[] }>(
+          await fetch("/api/presupuestos", { cache: "no-store" }),
+        );
+
+        if (isCurrent) {
+          setAnnualRepairPresupuestos(data.presupuestos);
+        }
+      } catch (error) {
+        if (isCurrent) {
+          setFeedback(
+            error instanceof Error
+              ? error.message
+              : "No pudimos cargar el histórico de reparaciones.",
+          );
+        }
+      }
+    }
+
+    void loadAnnualRepairPresupuestos();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [currentView]);
+
+  useEffect(() => {
     setPresupuestosPage(1);
   }, [filters.estado, filters.tallerId, filters.dominio, filters.interno]);
 
@@ -1078,6 +1198,7 @@ export function DashboardShell({
 
         const data = await parseJsonResponse<{ presupuesto: PresupuestoDTO }>(response);
         setPresupuestos((current) => [data.presupuesto, ...current]);
+        setAnnualRepairPresupuestos((current) => [data.presupuesto, ...current]);
         setFeedback("Presupuesto guardado en estado Pendiente.");
         resetForm();
       } catch (error) {
@@ -1111,6 +1232,7 @@ export function DashboardShell({
 
         const data = await parseJsonResponse<{ presupuesto: PresupuestoDTO }>(response);
         setPresupuestos((current) => [data.presupuesto, ...current]);
+        setAnnualRepairPresupuestos((current) => [data.presupuesto, ...current]);
         setFeedback("Presupuesto externo guardado en estado Pendiente.");
         resetExternalForm();
       } catch (error) {
@@ -1164,6 +1286,11 @@ export function DashboardShell({
         });
         const data = await parseJsonResponse<{ presupuesto: PresupuestoDTO }>(response);
         setPresupuestos((current) =>
+          current.map((item) =>
+            item.id === managePresupuesto.id ? data.presupuesto : item,
+          ),
+        );
+        setAnnualRepairPresupuestos((current) =>
           current.map((item) =>
             item.id === managePresupuesto.id ? data.presupuesto : item,
           ),
@@ -1498,6 +1625,13 @@ export function DashboardShell({
 
         {currentView === "presupuestos" ? (
           <section className="grid gap-4 px-3 md:px-4 lg:px-5">
+            <ChartCard
+              title="Promedio anualizado de días de reparación"
+              description="Promedio mensual de reparaciones aprobadas con ingreso a taller. Los casos sin egreso cuentan hasta hoy."
+            >
+              <EChartsSurface option={annualRepairOption} height={320} />
+            </ChartCard>
+
             <Card className="border-border/70 shadow-none">
               <CardHeader className="border-b border-border/70 pb-3">
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">

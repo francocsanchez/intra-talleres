@@ -271,6 +271,11 @@ En la columna de estado, `Aprobado` se representa en verde, `Pendiente` en amari
   - distribución mensual de presupuestos por marca en gráfico `radar` con escala común entre ejes
   - distribución mensual de presupuestos por taller en gráfico `pie`
 
+## Seguimiento de presupuestos
+
+- Sobre la tabla se muestra un gráfico anualizado de línea con el promedio mensual de días de reparación de presupuestos `Aprobado` que tengan fecha de ingreso. Usa `F. Pedido` para agrupar, excluye los casos sin ingreso y cuenta hasta hoy cuando falta el egreso.
+- El gráfico es histórico e independiente de los filtros de la tabla; cada punto expone una etiqueta con el promedio de días del mes.
+
 ## Reglas de catalogo de talleres
 
 - La creación y edición de talleres debe rechazar nombres repetidos aunque cambie solo el casing.
