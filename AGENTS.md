@@ -252,6 +252,7 @@ En la columna de estado, `Aprobado` se representa en verde, `Pendiente` en amari
 - El cambio de estado y la carga de fecha de egreso se realizan desde un único `dialog` de gestión por presupuesto.
 - El modal `Gestionar presupuesto` también permite editar y limpiar `Detalle` y `Observaciones`.
 - La tabla de seguimiento incluye una columna `Presupuestos` que abre un dialog con todas las cotizaciones de la misma unidad, identificada por interno o por dominio si es externa, y sus totales acumulados de costo y costo con IVA.
+- La tabla `Seguimiento de presupuestos` pagina el resultado de los filtros en bloques de 40 registros y vuelve a la primera página al cambiar un filtro.
 - El resumen del historial de presupuestos debe distinguir los montos pendientes de aprobación (`Pendiente` y `Revisar`), los montos aprobados y el total general, todos con valores netos y con IVA.
 
 ## Dashboard actual

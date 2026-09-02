@@ -202,6 +202,8 @@ const defaultFilters: FilterState = {
   interno: "",
 };
 
+const PRESUPUESTOS_PER_PAGE = 40;
+
 const initialTallerFormState: TallerFormState = {
   nombre: "",
   tipoTrabajo: "",
@@ -336,6 +338,7 @@ export function DashboardShell({
     ...defaultFilters,
     ...initialFilters,
   });
+  const [presupuestosPage, setPresupuestosPage] = useState(1);
   const [feedback, setFeedback] = useState<string | null>(initialError || null);
   const [lookupMessage, setLookupMessage] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -425,6 +428,15 @@ export function DashboardShell({
         },
       ),
     [historyPresupuestos],
+  );
+  const presupuestosTotalPages = Math.max(
+    1,
+    Math.ceil(presupuestos.length / PRESUPUESTOS_PER_PAGE),
+  );
+  const currentPresupuestosPage = Math.min(presupuestosPage, presupuestosTotalPages);
+  const paginatedPresupuestos = presupuestos.slice(
+    (currentPresupuestosPage - 1) * PRESUPUESTOS_PER_PAGE,
+    currentPresupuestosPage * PRESUPUESTOS_PER_PAGE,
   );
 
   async function refreshPresupuestos() {
@@ -840,6 +852,10 @@ export function DashboardShell({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentView, filters.estado, filters.tallerId, deferredDominio, deferredInterno]);
+
+  useEffect(() => {
+    setPresupuestosPage(1);
+  }, [filters.estado, filters.tallerId, filters.dominio, filters.interno]);
 
   function updateForm<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -2200,7 +2216,7 @@ export function DashboardShell({
                     </TableHeader>
                     <TableBody>
                       {presupuestos.length ? (
-                        presupuestos.map((presupuesto) => (
+                        paginatedPresupuestos.map((presupuesto) => (
                           <TableRow key={presupuesto.id} className="align-top">
                             <TableCell>
                               <Badge className={getEstadoTone(presupuesto.estado)}>
@@ -2317,7 +2333,7 @@ export function DashboardShell({
                       ) : (
                         <TableRow>
                           <TableCell
-                          colSpan={15}
+                          colSpan={16}
                           className="h-32 text-center text-sm text-muted-foreground"
                         >
                             {isRefreshing
@@ -2329,6 +2345,46 @@ export function DashboardShell({
                     </TableBody>
                   </Table>
                 </div>
+                {presupuestos.length > PRESUPUESTOS_PER_PAGE ? (
+                  <div className="flex flex-col gap-2 border-t border-border/70 px-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-muted-foreground">
+                      Mostrando {(currentPresupuestosPage - 1) * PRESUPUESTOS_PER_PAGE + 1} a{" "}
+                      {Math.min(
+                        currentPresupuestosPage * PRESUPUESTOS_PER_PAGE,
+                        presupuestos.length,
+                      )} de {presupuestos.length} presupuestos
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setPresupuestosPage((page) => Math.max(1, page - 1))
+                        }
+                        disabled={currentPresupuestosPage === 1}
+                      >
+                        Anterior
+                      </Button>
+                      <span className="min-w-20 text-center text-xs text-muted-foreground">
+                        Página {currentPresupuestosPage} de {presupuestosTotalPages}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setPresupuestosPage((page) =>
+                            Math.min(presupuestosTotalPages, page + 1),
+                          )
+                        }
+                        disabled={currentPresupuestosPage === presupuestosTotalPages}
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 

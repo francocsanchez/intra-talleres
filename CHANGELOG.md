@@ -2,6 +2,7 @@
 
 ## 2026-09-01
 
+- La tabla `Seguimiento de presupuestos` ahora pagina los resultados filtrados en bloques de 40 registros, con rango visible y controles anterior/siguiente.
 - `Ver más` pasó a mostrar una ficha completa del presupuesto: unidad, taller, kilómetros, estado, prioridad, número, fechas, duración de reparación, importes de costo y todos los valores de toma, además de detalle y observaciones.
 - El modal `Gestionar presupuesto` ahora permite cargar, editar y limpiar `Detalle` y `Observaciones` junto con el estado y las fechas de taller.
 - Los badges de estado en la tabla ahora usan semántica visual operativa: `Aprobado` verde, `Pendiente` amarillo, `Rechazado` rojo y `Revisar` gris.
