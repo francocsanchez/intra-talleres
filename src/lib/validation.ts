@@ -10,6 +10,12 @@ const optionalTextField = z
   .optional()
   .transform((value) => value || undefined);
 
+const optionalDetailField = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => value || undefined);
+
 export const presupuestoFiltersSchema = z.object({
   estado: z.string().trim().optional(),
   tallerId: z.string().trim().optional(),
@@ -34,7 +40,7 @@ const presupuestoBaseSchema = z.object({
   observaciones: z.string().trim().max(500).optional().default(""),
   nroPresupuesto: optionalTextField,
   prioridad: z.enum(PRIORIDAD_OPTIONS).optional(),
-  detalle: optionalTextField,
+  detalle: optionalDetailField,
   fechaPedido: z.string().trim().min(1, "Ingresá la fecha del pedido."),
   fechaIngresoTaller: z.string().trim().optional(),
   fechaEgresoTaller: z.string().trim().optional(),
@@ -70,7 +76,7 @@ export const updatePresupuestoSchema = z
     estado: z.enum(PRESUPUESTO_ESTADOS).optional(),
     fechaIngresoTaller: z.string().trim().optional(),
     fechaEgresoTaller: z.string().trim().optional(),
-    detalle: z.string().trim().max(250).optional(),
+    detalle: z.string().trim().optional(),
     observaciones: z.string().trim().max(500).optional(),
   })
   .refine(

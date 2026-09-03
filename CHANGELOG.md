@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-09-03
+
+- Se eliminó el límite de caracteres de `Detalle` al crear o gestionar un presupuesto, permitiendo registrar descripciones extensas sin rechazar el guardado.
+
 ## 2026-09-02
 
 - Se agregó sobre `Seguimiento de presupuestos` un gráfico anualizado de línea con el promedio mensual de días de reparación. Considera solo presupuestos aprobados con ingreso, toma `F. Pedido` como mes analítico y cuenta hasta hoy los casos sin egreso; cada punto muestra su promedio de días y no cambia al aplicar filtros de la tabla.
