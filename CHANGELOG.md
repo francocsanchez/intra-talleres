@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-04
+
+- La tabla de seguimiento ahora identifica los presupuestos externos marcados como re-ingreso con un ícono junto a `Externo`. Los autocompletes de marca y modelo externos ahora usan `@headlessui/react` con listas filtrables, selector desplegable y navegación por teclado.
+- Se corrigió la selección de modelos externos para que el `Combobox` mantenga el código estable del catálogo al recargar opciones dependientes de la marca.
+- La búsqueda de modelos externos ahora se realiza por demanda a partir del tercer carácter, con una espera breve entre teclas y un máximo de 50 coincidencias filtradas desde SQL Server para evitar bloqueos con marcas de catálogos extensos.
+- Los presupuestos externos ahora pueden identificarse como `Re-ingreso` desde su alta. La marca se persiste en MongoDB, se muestra en `Ver más` y se destaca en el historial de presupuestos de la misma unidad; los registros históricos e internos se tratan como no re-ingreso.
+
 ## 2026-09-03
 
 - Se eliminó el límite de caracteres de `Detalle` al crear o gestionar un presupuesto, permitiendo registrar descripciones extensas sin rechazar el guardado.

@@ -14,6 +14,11 @@ const presupuestoSchema = new Schema(
       required: true,
       default: false,
     },
+    esReingreso: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
     dominio: {
       type: String,
       required: true,
@@ -116,15 +121,29 @@ const existingPresupuestoModel = models.Presupuesto as
   | undefined;
 
 // Next reutiliza los modelos de Mongoose durante el desarrollo. Agregamos estos
-// paths al modelo existente para que las nuevas altas no descarten los valores
-// de toma hasta que se reinicie el proceso.
-if (existingPresupuestoModel && !existingPresupuestoModel.schema.path("valorInfo")) {
-  existingPresupuestoModel.schema.add({
-    valorInfo: { type: Number, min: 0 },
-    porcentajeToma: { type: Number, min: 0, max: 100 },
-    valorIngreso: { type: Number, min: 0 },
-    diferencia: { type: Number, min: 0 },
-  });
+// paths al modelo existente para que las nuevas altas no descarten los campos
+// agregados hasta que se reinicie el proceso.
+if (existingPresupuestoModel) {
+  const missingPaths: Record<string, unknown> = {};
+
+  if (!existingPresupuestoModel.schema.path("valorInfo")) {
+    Object.assign(missingPaths, {
+      valorInfo: { type: Number, min: 0 },
+      porcentajeToma: { type: Number, min: 0, max: 100 },
+      valorIngreso: { type: Number, min: 0 },
+      diferencia: { type: Number, min: 0 },
+    });
+  }
+
+  if (!existingPresupuestoModel.schema.path("esReingreso")) {
+    Object.assign(missingPaths, {
+      esReingreso: { type: Boolean, required: true, default: false },
+    });
+  }
+
+  if (Object.keys(missingPaths).length > 0) {
+    existingPresupuestoModel.schema.add(missingPaths);
+  }
 }
 
 export const PresupuestoModel =

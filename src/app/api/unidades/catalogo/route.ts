@@ -25,8 +25,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ marcas });
     }
 
-    const parsed = lookupCatalogoModelosSchema.parse({ marcaCodigo });
-    const modelos = await fetchUnidadModelosByMarca(parsed.marcaCodigo);
+    const parsed = lookupCatalogoModelosSchema.parse({
+      marcaCodigo,
+      query: request.nextUrl.searchParams.get("query") || undefined,
+    });
+    const modelos = await fetchUnidadModelosByMarca(parsed.marcaCodigo, parsed.query);
     return NextResponse.json({ modelos });
   } catch (error) {
     if (error instanceof ZodError) {

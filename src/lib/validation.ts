@@ -56,6 +56,7 @@ export const createPresupuestoExternoSchema = presupuestoBaseSchema.extend({
   dominio: z.string().trim().min(1).max(32),
   marcaCodigo: z.string().trim().min(1).max(32),
   modeloCodigo: z.string().trim().min(1).max(32),
+  esReingreso: z.coerce.boolean().default(false),
 });
 
 export const createPresupuestoSchema = z.discriminatedUnion("origen", [
@@ -65,6 +66,11 @@ export const createPresupuestoSchema = z.discriminatedUnion("origen", [
 
 export const lookupCatalogoModelosSchema = z.object({
   marcaCodigo: z.string().trim().min(1).max(32),
+  query: z
+    .string()
+    .trim()
+    .min(3, "Ingresá al menos 3 caracteres para buscar modelos.")
+    .max(80),
 });
 
 export const updatePresupuestoEstadoSchema = z.object({

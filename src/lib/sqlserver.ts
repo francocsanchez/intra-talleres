@@ -127,17 +127,18 @@ export async function fetchUnidadMarcas() {
   })) satisfies UnidadMarcaOptionDTO[];
 }
 
-export async function fetchUnidadModelosByMarca(marcaCodigo: string) {
+export async function fetchUnidadModelosByMarca(marcaCodigo: string, query: string) {
   const pool = await getSqlPool();
   const result = await pool
     .request()
     .input("marcaCodigo", sql.VarChar(32), marcaCodigo)
+    .input("query", sql.VarChar(80), query)
     .query<{
       codigo: string;
       nombre: string | null;
       marcaCodigo: string;
     }>(`
-      SELECT
+      SELECT TOP (50)
         modelos.codigo,
         modelos.nombre,
         modelos.marcaCodigo
@@ -151,6 +152,7 @@ export async function fetchUnidadModelosByMarca(marcaCodigo: string) {
           ON m.mar_codigo = a.au_marca
         WHERE CAST(m.mar_codigo AS VARCHAR(32)) = @marcaCodigo
           AND LTRIM(RTRIM(ISNULL(CAST(a.au_nombre AS VARCHAR(255)), ''))) <> ''
+          AND LTRIM(RTRIM(CAST(a.au_nombre AS VARCHAR(255)))) LIKE '%' + @query + '%'
       ) modelos
       ORDER BY modelos.nombre
     `);

@@ -149,6 +149,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 - `presupuesto`
   - `interno` opcional para unidades externas
   - `esExterno`
+  - `esReingreso` booleano para identificar reingresos de unidades externas, con default `false`
   - `dominio`
   - `marca`
   - `modelo`
@@ -241,7 +242,11 @@ En la columna de estado, `Aprobado` se representa en verde, `Pendiente` en amari
 - Al cerrar cualquiera de los modales de alta, el formulario debe resetearse completo para no conservar datos de la operación anterior.
 - Los selects de taller dentro de formularios deben mostrar siempre `taller.nombre` como etiqueta visible, nunca el `id` persistido.
 - En presupuestos externos, la marca y el modelo deben seleccionarse desde el catálogo SQL del sistema y no como texto libre.
+- Los presupuestos externos deben permitir marcar `Es re-ingreso` al crearlos; la marca se consulta en `Ver más` y en el historial de presupuestos de la unidad, sin agregar filtros ni columnas a la tabla principal.
+- La tabla principal debe indicar un presupuesto externo de re-ingreso con un ícono junto a `Externo`, con texto alternativo `Unidad reingresada`.
 - Marca y modelo de presupuestos externos deben resolverse con autocomplete sobre el catálogo SQL, mostrando siempre el nombre visible y nunca el código técnico.
+- Los autocompletes de marca y modelo externos deben usar `@headlessui/react` `Combobox`, con lista filtrable, selector desplegable y navegación por teclado.
+- Los modelos externos no deben descargarse al seleccionar una marca: la búsqueda debe activarse desde el tercer carácter, consultar SQL Server por demanda y limitar la respuesta a 50 coincidencias.
 - El catálogo de modelos para presupuestos externos debe salir de `siac.dbo.auto`, vinculando `au_marca = mar_codigo`, guardando `au_codigo` y mostrando `au_nombre`.
 - Si la carga del catálogo externo se recupera correctamente luego de un fallo previo, el mensaje global de error no debe persistir visible.
 - La fecha de egreso puede quedar vacía al crear y luego completarse desde la tabla de seguimiento.

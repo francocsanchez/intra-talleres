@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
       const presupuesto = await createPresupuestoRecord({
         interno: unidad.interno,
         esExterno: false,
+        esReingreso: false,
         dominio: unidad.dominio,
         marca: unidad.marca,
         modelo: unidad.modelo,
@@ -136,6 +137,7 @@ export async function POST(request: NextRequest) {
     const presupuesto = await createPresupuestoRecord({
       interno: "",
       esExterno: true,
+      esReingreso: payload.esReingreso,
       dominio: payload.dominio,
       marca: modelo.marca,
       modelo: modelo.modelo,

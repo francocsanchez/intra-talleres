@@ -52,6 +52,7 @@ export type PresupuestoDTO = {
   id: string;
   interno: string;
   esExterno: boolean;
+  esReingreso: boolean;
   dominio: string;
   marca: string;
   modelo: string;

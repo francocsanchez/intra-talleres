@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import type { ReactNode } from "react";
 import {
+  Combobox,
+  ComboboxButton,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+} from "@headlessui/react";
+import {
   BarChart3,
   ChevronDown,
   ClipboardList,
@@ -12,6 +19,7 @@ import {
   LoaderCircle,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   Settings,
   ShieldCheck,
@@ -112,6 +120,7 @@ type FormState = {
 
 type ExternalFormState = {
   dominio: string;
+  esReingreso: boolean;
   marcaCodigo: string;
   marcaNombre: string;
   modeloCodigo: string;
@@ -173,6 +182,7 @@ function createInitialFormState(): FormState {
 function createInitialExternalFormState(): ExternalFormState {
   return {
     dominio: "",
+    esReingreso: false,
     marcaCodigo: "",
     marcaNombre: "",
     modeloCodigo: "",
@@ -362,10 +372,14 @@ export function DashboardShell({
   const [isRefreshing, startRefreshTransition] = useTransition();
   const [isLookingUp, startLookupTransition] = useTransition();
   const [isLoadingExternalCatalog, startExternalCatalogTransition] = useTransition();
+  const [isLoadingExternalModels, startExternalModelsTransition] = useTransition();
   const [isSavingTaller, startSavingTallerTransition] = useTransition();
   const [isDeletingTaller, startDeletingTallerTransition] = useTransition();
   const [externalBrands, setExternalBrands] = useState<UnidadMarcaOptionDTO[]>([]);
   const [externalModels, setExternalModels] = useState<UnidadModeloOptionDTO[]>([]);
+  const [externalBrandQuery, setExternalBrandQuery] = useState("");
+  const [externalModelQuery, setExternalModelQuery] = useState("");
+  const [loadedExternalModelQuery, setLoadedExternalModelQuery] = useState("");
   const deferredDominio = useDeferredValue(filters.dominio);
   const deferredInterno = useDeferredValue(filters.interno);
   const canManageSettings = currentUserRole === "admin";
@@ -998,6 +1012,9 @@ export function DashboardShell({
   function resetExternalForm() {
     setExternalForm(createInitialExternalFormState());
     setExternalModels([]);
+    setExternalBrandQuery("");
+    setExternalModelQuery("");
+    setLoadedExternalModelQuery("");
     setIsExternalCreateDialogOpen(false);
   }
 
@@ -1028,29 +1045,20 @@ export function DashboardShell({
     }
   }
 
-  async function loadExternalModels(marcaCodigo: string) {
-    if (!marcaCodigo) {
-      setExternalModels([]);
-      return;
-    }
+  async function loadExternalModels(
+    marcaCodigo: string,
+    query: string,
+    signal: AbortSignal,
+  ) {
+    const params = new URLSearchParams({ marcaCodigo, query });
+    const data = await parseJsonResponse<{ modelos: UnidadModeloOptionDTO[] }>(
+      await fetch(`/api/unidades/catalogo?${params.toString()}`, {
+        cache: "no-store",
+        signal,
+      }),
+    );
 
-    try {
-      const data = await parseJsonResponse<{ modelos: UnidadModeloOptionDTO[] }>(
-        await fetch(
-          `/api/unidades/catalogo?marcaCodigo=${encodeURIComponent(marcaCodigo)}`,
-          { cache: "no-store" },
-        ),
-      );
-      setExternalModels(data.modelos);
-      setFeedback(null);
-    } catch (error) {
-      setExternalModels([]);
-      setFeedback(
-        error instanceof Error
-          ? error.message
-          : "No pudimos cargar los modelos de la marca seleccionada.",
-      );
-    }
+    return data.modelos;
   }
 
   function resetTallerForm() {
@@ -1117,50 +1125,54 @@ export function DashboardShell({
     });
   }
 
-  function handleExternalBrandInput(value: string) {
-    const normalizedValue = value.trim().toLowerCase();
-    const matchedBrand =
-      externalBrands.find((marca) => marca.nombre.trim().toLowerCase() === normalizedValue) ??
-      null;
+  function selectExternalBrand(marcaCodigo: string | null) {
+    const marca = externalBrands.find((item) => item.codigo === marcaCodigo);
 
-    setExternalForm((current) => ({
-      ...current,
-      marcaNombre: value,
-      marcaCodigo: matchedBrand?.codigo || "",
-      modeloCodigo:
-        matchedBrand && matchedBrand.codigo === current.marcaCodigo ? current.modeloCodigo : "",
-      modeloNombre:
-        matchedBrand && matchedBrand.codigo === current.marcaCodigo ? current.modeloNombre : "",
-    }));
-
-    setExternalModels(matchedBrand && matchedBrand.codigo === externalForm.marcaCodigo ? externalModels : []);
-
-    if (!matchedBrand) {
+    if (!marca) {
       return;
     }
 
-    startExternalCatalogTransition(async () => {
-      await loadExternalModels(matchedBrand.codigo);
-    });
+    setExternalForm((current) => ({
+      ...current,
+      marcaNombre: marca.nombre,
+      marcaCodigo: marca.codigo,
+      modeloCodigo: marca.codigo === current.marcaCodigo ? current.modeloCodigo : "",
+      modeloNombre: marca.codigo === current.marcaCodigo ? current.modeloNombre : "",
+    }));
+    setExternalModels([]);
+    setExternalBrandQuery("");
+    setExternalModelQuery("");
+    setLoadedExternalModelQuery("");
   }
 
-  function handleExternalModelInput(value: string) {
-    const normalizedValue = value.trim().toLowerCase();
-    const matchedModel =
-      externalModels.find((modelo) => modelo.nombre.trim().toLowerCase() === normalizedValue) ??
-      null;
+  function selectExternalModel(modeloCodigo: string | null) {
+    const modelo = externalModels.find((item) => item.codigo === modeloCodigo);
+
+    if (!modelo) {
+      return;
+    }
 
     setExternalForm((current) => ({
       ...current,
-      modeloNombre: value,
-      modeloCodigo: matchedModel?.codigo || "",
+      modeloNombre: modelo.nombre,
+      modeloCodigo: modelo.codigo,
     }));
+    setExternalModelQuery("");
   }
 
   const selectedTallerName =
     talleres.find((taller) => taller.id === form.tallerId)?.nombre ?? "";
   const selectedExternalTallerName =
     talleres.find((taller) => taller.id === externalForm.tallerId)?.nombre ?? "";
+  const filteredExternalBrands = externalBrands.filter((marca) =>
+    marca.nombre.toLocaleLowerCase().includes(externalBrandQuery.trim().toLocaleLowerCase()),
+  );
+  const normalizedExternalModelQuery = externalModelQuery.trim();
+  const canSearchExternalModels =
+    Boolean(externalForm.marcaCodigo) && normalizedExternalModelQuery.length >= 3;
+  const hasLoadedExternalModels =
+    canSearchExternalModels &&
+    loadedExternalModelQuery === normalizedExternalModelQuery;
   const tomaValores = calculateValoresToma(
     Number(form.valorInfo) || 0,
     Number(form.porcentajeToma) || 0,
@@ -1174,6 +1186,54 @@ export function DashboardShell({
   const presupuestoExternoSuperaDiferencia =
     Boolean(externalForm.costo) &&
     Number(externalForm.costo) > externalTomaValores.diferencia;
+
+  useEffect(() => {
+    if (!canSearchExternalModels) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      startExternalModelsTransition(async () => {
+        try {
+          const modelos = await loadExternalModels(
+            externalForm.marcaCodigo,
+            normalizedExternalModelQuery,
+            controller.signal,
+          );
+
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          setExternalModels(modelos);
+          setLoadedExternalModelQuery(normalizedExternalModelQuery);
+          setFeedback(null);
+        } catch (error) {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          setExternalModels([]);
+          setLoadedExternalModelQuery(normalizedExternalModelQuery);
+          setFeedback(
+            error instanceof Error
+              ? error.message
+              : "No pudimos buscar modelos para la marca seleccionada.",
+          );
+        }
+      });
+    }, 250);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    canSearchExternalModels,
+    externalForm.marcaCodigo,
+    normalizedExternalModelQuery,
+  ]);
 
   function createPresupuesto() {
     if (!canManagePresupuestos) {
@@ -1978,52 +2038,143 @@ export function DashboardShell({
                             />
                           </div>
 
+                          <label className="flex w-fit items-center gap-2 rounded-md border border-border/70 bg-secondary/25 px-2.5 py-1.5 text-sm font-medium">
+                            <input
+                              id="externo-esReingreso"
+                              type="checkbox"
+                              checked={externalForm.esReingreso}
+                              onChange={(event) =>
+                                updateExternalForm("esReingreso", event.target.checked)
+                              }
+                              className="size-3.5 rounded border-input accent-primary"
+                            />
+                            Es re-ingreso
+                          </label>
+
                           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             <Field label="Marca" htmlFor="externo-marca">
-                              <Input
-                                id="externo-marca"
-                                list="externo-marcas"
-                                value={externalForm.marcaNombre}
-                                onChange={(event) =>
-                                  handleExternalBrandInput(event.target.value)
-                                }
-                                placeholder={
-                                  isLoadingExternalCatalog
-                                    ? "Cargando marcas..."
-                                    : "Escribí o elegí una marca"
-                                }
-                                autoComplete="off"
-                              />
-                              <datalist id="externo-marcas">
-                                {externalBrands.map((marca) => (
-                                  <option key={marca.codigo} value={marca.nombre} />
-                                ))}
-                              </datalist>
+                              <Combobox
+                                value={externalForm.marcaCodigo || null}
+                                onChange={selectExternalBrand}
+                                onClose={() => setExternalBrandQuery("")}
+                                immediate
+                              >
+                                <div className="flex h-7 w-full overflow-hidden rounded-md border border-input bg-input/20 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
+                                  <ComboboxInput
+                                    id="externo-marca"
+                                    placeholder={
+                                      isLoadingExternalCatalog
+                                        ? "Cargando marcas..."
+                                        : "Escribí o elegí una marca"
+                                    }
+                                    disabled={isLoadingExternalCatalog}
+                                    displayValue={(marcaCodigo: string | null) =>
+                                      externalBrands.find(
+                                        (marca) => marca.codigo === marcaCodigo,
+                                      )?.nombre ?? ""
+                                    }
+                                    onChange={(event) => setExternalBrandQuery(event.target.value)}
+                                    className="min-w-0 flex-1 bg-transparent px-2 py-0.5 text-sm outline-none placeholder:text-muted-foreground md:text-xs/relaxed"
+                                  />
+                                  <ComboboxButton
+                                    aria-label="Mostrar marcas"
+                                    disabled={isLoadingExternalCatalog}
+                                    className="flex w-7 shrink-0 items-center justify-center border-l border-input text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-none"
+                                  >
+                                    <ChevronDown className="size-3.5" />
+                                  </ComboboxButton>
+                                </div>
+                                <ComboboxOptions
+                                  anchor="bottom start"
+                                  modal={false}
+                                  transition
+                                  className="z-50 mt-1 max-h-56 w-[var(--input-width)] overflow-y-auto rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-md transition duration-100 ease-out data-closed:scale-95 data-closed:opacity-0"
+                                >
+                                  {filteredExternalBrands.length === 0 ? (
+                                    <p className="px-2 py-2 text-xs text-muted-foreground">
+                                        No encontramos marcas coincidentes.
+                                    </p>
+                                  ) : (
+                                    filteredExternalBrands.map((marca) => (
+                                      <ComboboxOption
+                                        key={marca.codigo}
+                                        value={marca.codigo}
+                                        className="cursor-default px-2 py-1.5 text-sm outline-none select-none data-focus:bg-accent data-focus:text-accent-foreground"
+                                      >
+                                        {marca.nombre}
+                                      </ComboboxOption>
+                                    ))
+                                  )}
+                                </ComboboxOptions>
+                              </Combobox>
                             </Field>
 
                             <Field label="Modelo" htmlFor="externo-modelo">
-                              <Input
-                                id="externo-modelo"
-                                list="externo-modelos"
-                                value={externalForm.modeloNombre}
-                                onChange={(event) =>
-                                  handleExternalModelInput(event.target.value)
-                                }
-                                placeholder={
-                                  !externalForm.marcaCodigo
-                                    ? "Elegí una marca primero"
-                                    : isLoadingExternalCatalog
-                                      ? "Cargando modelos..."
-                                      : "Escribí o elegí un modelo"
-                                }
-                                autoComplete="off"
+                              <Combobox
+                                value={externalForm.modeloCodigo || null}
+                                onChange={selectExternalModel}
+                                onClose={() => setExternalModelQuery("")}
                                 disabled={!externalForm.marcaCodigo || isLoadingExternalCatalog}
-                              />
-                              <datalist id="externo-modelos">
-                                {externalModels.map((modelo) => (
-                                  <option key={modelo.codigo} value={modelo.nombre} />
-                                ))}
-                              </datalist>
+                                immediate
+                              >
+                                <div className="flex h-7 w-full overflow-hidden rounded-md border border-input bg-input/20 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
+                                  <ComboboxInput
+                                    id="externo-modelo"
+                                    placeholder={
+                                      !externalForm.marcaCodigo
+                                        ? "Elegí una marca primero"
+                                        : isLoadingExternalCatalog
+                                          ? "Cargando modelos..."
+                                          : "Escribí o elegí un modelo"
+                                    }
+                                    disabled={!externalForm.marcaCodigo || isLoadingExternalCatalog}
+                                    displayValue={(modeloCodigo: string | null) =>
+                                      externalModels.find(
+                                        (modelo) => modelo.codigo === modeloCodigo,
+                                      )?.nombre ?? ""
+                                    }
+                                    onChange={(event) => setExternalModelQuery(event.target.value)}
+                                    className="min-w-0 flex-1 bg-transparent px-2 py-0.5 text-sm outline-none placeholder:text-muted-foreground md:text-xs/relaxed"
+                                  />
+                                  <ComboboxButton
+                                    aria-label="Mostrar modelos"
+                                    disabled={!externalForm.marcaCodigo || isLoadingExternalCatalog}
+                                    className="flex w-7 shrink-0 items-center justify-center border-l border-input text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-none"
+                                  >
+                                    <ChevronDown className="size-3.5" />
+                                  </ComboboxButton>
+                                </div>
+                                <ComboboxOptions
+                                  anchor="bottom start"
+                                  modal={false}
+                                  transition
+                                  className="z-50 mt-1 max-h-56 w-[var(--input-width)] overflow-y-auto rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-md transition duration-100 ease-out data-closed:scale-95 data-closed:opacity-0"
+                                >
+                                  {!canSearchExternalModels ? (
+                                    <p className="px-2 py-2 text-xs text-muted-foreground">
+                                      Escribí al menos 3 caracteres para buscar modelos.
+                                    </p>
+                                  ) : !hasLoadedExternalModels || isLoadingExternalModels ? (
+                                    <p className="px-2 py-2 text-xs text-muted-foreground">
+                                      Buscando modelos...
+                                    </p>
+                                  ) : externalModels.length === 0 ? (
+                                    <p className="px-2 py-2 text-xs text-muted-foreground">
+                                        No encontramos modelos coincidentes.
+                                    </p>
+                                  ) : (
+                                    externalModels.map((modelo) => (
+                                      <ComboboxOption
+                                        key={modelo.codigo}
+                                        value={modelo.codigo}
+                                        className="cursor-default px-2 py-1.5 text-sm outline-none select-none data-focus:bg-accent data-focus:text-accent-foreground"
+                                      >
+                                        {modelo.nombre}
+                                      </ComboboxOption>
+                                    ))
+                                  )}
+                                </ComboboxOptions>
+                              </Combobox>
                             </Field>
 
                             <div className="grid gap-2">
@@ -2364,7 +2515,20 @@ export function DashboardShell({
                             </TableCell>
                             <TableCell className="font-medium">{presupuesto.tallerNombre}</TableCell>
                             <TableCell>
-                              {presupuesto.esExterno ? "Externo" : presupuesto.interno}
+                              <div className="flex items-center gap-1.5">
+                                <span>
+                                  {presupuesto.esExterno ? "Externo" : presupuesto.interno}
+                                </span>
+                                {presupuesto.esExterno && presupuesto.esReingreso ? (
+                                  <span
+                                    className="text-primary"
+                                    title="Unidad reingresada"
+                                    aria-label="Unidad reingresada"
+                                  >
+                                    <RotateCcw className="size-3.5" />
+                                  </span>
+                                ) : null}
+                              </div>
                             </TableCell>
                             <TableCell>{presupuesto.dominio}</TableCell>
                             <TableCell>
@@ -2711,6 +2875,12 @@ export function DashboardShell({
                             detailsPresupuesto.fechaPedido || detailsPresupuesto.createdAt,
                           )}
                         />
+                        {detailsPresupuesto.esExterno ? (
+                          <DetailStat
+                            label="Re-ingreso"
+                            value={detailsPresupuesto.esReingreso ? "Sí" : "No"}
+                          />
+                        ) : null}
                         <DetailStat
                           label="Ingreso a taller"
                           value={
@@ -2848,6 +3018,7 @@ export function DashboardShell({
                             <TableHead>Nro.</TableHead>
                             <TableHead>Taller</TableHead>
                             <TableHead>Estado</TableHead>
+                            <TableHead>Seguimiento</TableHead>
                             <TableHead className="text-right">Costo</TableHead>
                             <TableHead className="text-right">Costo + IVA</TableHead>
                           </TableRow>
@@ -2862,6 +3033,13 @@ export function DashboardShell({
                                 <Badge className={getEstadoTone(item.estado)}>
                                   {item.estado}
                                 </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {item.esExterno && item.esReingreso ? (
+                                  <Badge variant="outline">Re-ingreso</Badge>
+                                ) : (
+                                  "-"
+                                )}
                               </TableCell>
                               <TableCell className="text-right">
                                 {formatCurrency(item.costo)}
