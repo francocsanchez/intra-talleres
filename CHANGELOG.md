@@ -2,6 +2,7 @@
 
 ## 2026-10-16
 
+- Las acciones de alta y exportación de la vista `Presupuestos` ahora se disponen en una única fila compacta. El botón `Exportar Excel` se destaca en verde.
 - La vista `Presupuestos` ahora permite exportar a Excel todos los presupuestos resultantes de los filtros actuales, incluyendo información de la unidad, estado, importes, fechas, duración de reparación, detalle y observaciones. Las fechas y los importes se generan como valores operables dentro del archivo.
 
 ## 2026-09-04

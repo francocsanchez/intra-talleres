@@ -1842,12 +1842,12 @@ export function DashboardShell({
                         : "Consultá presupuestos, aplicá filtros y abrí observaciones en modo solo lectura."}
                     </CardDescription>
                   </div>
-                  <div className="flex flex-col gap-2 xl:items-end">
+                  <div className="flex w-full flex-row flex-wrap items-center justify-end gap-2 xl:w-auto">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="w-full xl:w-auto"
+                      className="bg-emerald-600 text-white hover:bg-emerald-700"
                       onClick={exportPresupuestosToExcel}
                       disabled={isExporting || !presupuestos.length}
                     >
@@ -1859,14 +1859,14 @@ export function DashboardShell({
                       Exportar Excel
                     </Button>
                     {canManagePresupuestos ? (
-                      <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
+                      <div className="flex flex-row gap-2">
                         <Dialog
                           open={isCreateDialogOpen}
                           onOpenChange={handleCreateDialogOpenChange}
                         >
                           <DialogTrigger
                             render={
-                              <Button type="button" className="w-full xl:w-auto" />
+                              <Button type="button" />
                             }
                           >
                               <Plus className="size-4" />
@@ -2150,7 +2150,7 @@ export function DashboardShell({
                         >
                           <DialogTrigger
                             render={
-                              <Button type="button" variant="outline" className="w-full xl:w-auto" />
+                              <Button type="button" variant="outline" />
                             }
                           >
                               <Plus className="size-4" />
