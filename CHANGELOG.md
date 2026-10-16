@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-16
+
+- La vista `Presupuestos` ahora permite exportar a Excel todos los presupuestos resultantes de los filtros actuales, incluyendo información de la unidad, estado, importes, fechas, duración de reparación, detalle y observaciones. Las fechas y los importes se generan como valores operables dentro del archivo.
+
 ## 2026-09-04
 
 - La tabla de seguimiento ahora identifica los presupuestos externos marcados como re-ingreso con un ícono junto a `Externo`. Los autocompletes de marca y modelo externos ahora usan `@headlessui/react` con listas filtrables, selector desplegable y navegación por teclado.

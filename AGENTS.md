@@ -259,6 +259,7 @@ En la columna de estado, `Aprobado` se representa en verde, `Pendiente` en amari
 - El campo `Detalle` no tiene límite de longitud, tanto en las altas como en la gestión, para admitir descripciones operativas extensas.
 - La tabla de seguimiento incluye una columna `Presupuestos` que abre un dialog con todas las cotizaciones de la misma unidad, identificada por interno o por dominio si es externa, y sus totales acumulados de costo y costo con IVA.
 - La tabla `Seguimiento de presupuestos` pagina el resultado de los filtros en bloques de 40 registros y vuelve a la primera página al cambiar un filtro.
+- La vista `Presupuestos` debe ofrecer exportación a Excel de todos los registros coincidentes con los filtros aplicados, independientemente de la página visible. El archivo debe conservar fechas e importes como valores de Excel para permitir su análisis posterior.
 - El resumen del historial de presupuestos debe distinguir los montos pendientes de aprobación (`Pendiente` y `Revisar`), los montos aprobados y el total general, todos con valores netos y con IVA.
 
 ## Dashboard actual

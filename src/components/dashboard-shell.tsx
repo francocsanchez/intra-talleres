@@ -15,6 +15,7 @@ import {
   BarChart3,
   ChevronDown,
   ClipboardList,
+  Download,
   FileText,
   LoaderCircle,
   Pencil,
@@ -155,10 +156,63 @@ type TallerFormState = {
 type TooltipScalarValue = string | number | Date | null | undefined;
 type TooltipValue = TooltipScalarValue | TooltipScalarValue[];
 
+type ExportablePresupuesto = {
+  Estado: PresupuestoEstado;
+  Prioridad: string;
+  Taller: string;
+  Tipo: string;
+  "Es re-ingreso": string;
+  Interno: string;
+  Dominio: string;
+  Marca: string;
+  Modelo: string;
+  "KM informado": number;
+  "Costo ARS": number;
+  "Costo con IVA ARS": number;
+  "Valor info ARS": number | undefined;
+  "% toma": number | undefined;
+  "Valor ingreso ARS": number | undefined;
+  "Diferencia ARS": number | undefined;
+  "F. Pedido": Date;
+  "Ingreso a taller": Date | undefined;
+  "Egreso de taller": Date | undefined;
+  "D. Reparación": number | undefined;
+  "Nro. presupuesto": string;
+  Detalle: string;
+  Observaciones: string;
+};
+
 function getCurrentDateInputValue() {
   const now = new Date();
   const timezoneOffsetMs = now.getTimezoneOffset() * 60_000;
   return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 10);
+}
+
+function parseCalendarDateForExport(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (match) {
+    const [, year, month, day] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  const parsedDate = new Date(value);
+  return Number.isNaN(parsedDate.getTime()) ? undefined : parsedDate;
+}
+
+function getExportFileName() {
+  const now = new Date();
+  const date = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  return `presupuestos-${date}.xlsx`;
 }
 
 function createInitialFormState(): FormState {
@@ -370,6 +424,7 @@ export function DashboardShell({
   const [editingTallerId, setEditingTallerId] = useState<string | null>(null);
   const [isSubmitting, startSubmitTransition] = useTransition();
   const [isRefreshing, startRefreshTransition] = useTransition();
+  const [isExporting, setIsExporting] = useState(false);
   const [isLookingUp, startLookupTransition] = useTransition();
   const [isLoadingExternalCatalog, startExternalCatalogTransition] = useTransition();
   const [isLoadingExternalModels, startExternalModelsTransition] = useTransition();
@@ -561,6 +616,88 @@ export function DashboardShell({
           ? error.message
           : "No pudimos refrescar la lista de presupuestos.",
       );
+    }
+  }
+
+  async function exportPresupuestosToExcel() {
+    if (!presupuestos.length) {
+      setFeedback("No hay presupuestos para exportar con los filtros actuales.");
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      const XLSX = await import("xlsx");
+      const rows: ExportablePresupuesto[] = presupuestos.map((presupuesto) => ({
+        Estado: presupuesto.estado,
+        Prioridad: presupuesto.prioridad || "Sin definir",
+        Taller: presupuesto.tallerNombre,
+        Tipo: presupuesto.esExterno ? "Externo" : "Interno",
+        "Es re-ingreso": presupuesto.esReingreso ? "Sí" : "No",
+        Interno: presupuesto.esExterno ? "" : presupuesto.interno,
+        Dominio: presupuesto.dominio,
+        Marca: presupuesto.marca,
+        Modelo: presupuesto.modelo,
+        "KM informado": presupuesto.km,
+        "Costo ARS": presupuesto.costo,
+        "Costo con IVA ARS": presupuesto.costoConIva,
+        "Valor info ARS": presupuesto.valorInfo,
+        "% toma": presupuesto.porcentajeToma,
+        "Valor ingreso ARS": presupuesto.valorIngreso,
+        "Diferencia ARS": presupuesto.diferencia,
+        "F. Pedido": parseCalendarDateForExport(
+          presupuesto.fechaPedido || presupuesto.createdAt,
+        ) ?? new Date(presupuesto.createdAt),
+        "Ingreso a taller": parseCalendarDateForExport(presupuesto.fechaIngresoTaller),
+        "Egreso de taller": parseCalendarDateForExport(presupuesto.fechaEgresoTaller),
+        "D. Reparación": getRepairDuration(
+          presupuesto.fechaIngresoTaller,
+          presupuesto.fechaEgresoTaller,
+        ) ?? undefined,
+        "Nro. presupuesto": presupuesto.nroPresupuesto || "",
+        Detalle: presupuesto.detalle || "",
+        Observaciones: presupuesto.observaciones || "",
+      }));
+      const worksheet = XLSX.utils.json_to_sheet(rows, { cellDates: true });
+      const dateColumns = ["Q", "R", "S"];
+      const currencyColumns = ["K", "L", "M", "O", "P"];
+
+      rows.forEach((_, rowIndex) => {
+        const excelRow = rowIndex + 2;
+
+        dateColumns.forEach((column) => {
+          const cell = worksheet[`${column}${excelRow}`];
+          if (cell) cell.z = "dd/mm/yy";
+        });
+
+        currencyColumns.forEach((column) => {
+          const cell = worksheet[`${column}${excelRow}`];
+          if (cell) cell.z = '"$" #,##0.00';
+        });
+      });
+
+      worksheet["!cols"] = [
+        { wch: 14 }, { wch: 13 }, { wch: 24 }, { wch: 11 }, { wch: 14 },
+        { wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 30 }, { wch: 14 },
+        { wch: 16 }, { wch: 20 }, { wch: 18 }, { wch: 12 }, { wch: 20 },
+        { wch: 18 }, { wch: 13 }, { wch: 18 }, { wch: 18 }, { wch: 16 },
+        { wch: 18 }, { wch: 45 }, { wch: 45 },
+      ];
+      worksheet["!autofilter"] = { ref: worksheet["!ref"]! };
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Presupuestos");
+      XLSX.writeFile(workbook, getExportFileName(), { cellDates: true });
+      setFeedback(`${rows.length} presupuesto${rows.length === 1 ? "" : "s"} exportado${rows.length === 1 ? "" : "s"} a Excel.`);
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? `No pudimos exportar el Excel: ${error.message}`
+          : "No pudimos exportar el Excel.",
+      );
+    } finally {
+      setIsExporting(false);
     }
   }
 
@@ -1706,6 +1843,21 @@ export function DashboardShell({
                     </CardDescription>
                   </div>
                   <div className="flex flex-col gap-2 xl:items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full xl:w-auto"
+                      onClick={exportPresupuestosToExcel}
+                      disabled={isExporting || !presupuestos.length}
+                    >
+                      {isExporting ? (
+                        <LoaderCircle className="size-4 animate-spin" />
+                      ) : (
+                        <Download className="size-4" />
+                      )}
+                      Exportar Excel
+                    </Button>
                     {canManagePresupuestos ? (
                       <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
                         <Dialog
