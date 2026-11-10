@@ -83,3 +83,23 @@ export type PresupuestoFilters = {
   dominio?: string;
   interno?: string;
 };
+
+export type StockSummaryMonthDTO = {
+  month: number;
+  analisis: number;
+  esperandoIngreso: number;
+  enReparacion: number;
+  reparado: number;
+};
+
+export type StockStage =
+  | "analisis"
+  | "esperandoIngreso"
+  | "enReparacion"
+  | "reparado";
+
+export type StockSummaryDTO = {
+  year: number;
+  availableYears: number[];
+  rows: StockSummaryMonthDTO[];
+};

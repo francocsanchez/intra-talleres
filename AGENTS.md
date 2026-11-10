@@ -118,6 +118,7 @@ Usar ademas padding reducido, no quiero separaciones grandes. Las vistas deben s
 ## Estado actual del MVP
 
 - La aplicacion actual corre sobre `Next 16`, `React 19`, `Tailwind 4` y `shadcn`.
+- La base MongoDB de desarrollo cuenta con una muestra manual de 52 presupuestos internos vinculados a internos verificados en SQL Server y tres talleres de ejemplo (`Taller Mecánica Norte`, `Servicio Integral Centro` y `Taller Diesel Sur`). Incluye 12 presupuestos recientes de octubre y noviembre de 2026 para demostrar el resumen de stock. Esta muestra es solo para demostración operativa y no reemplaza la carga manual del catálogo en instalaciones nuevas.
 - El MVP implementado unifica alta y seguimiento de presupuestos en una sola pantalla principal.
 - La persistencia del sistema se guarda en MongoDB local usando la base `intra_talleres`.
 - La consulta de unidades por `interno` se realiza contra SQL Server en modo solo lectura.
@@ -184,6 +185,7 @@ En la columna de estado, `Aprobado` se representa en verde, `Pendiente` en amari
 
 - `GET /api/unidades?interno=...`
 - `GET /api/unidades/catalogo`
+- `GET /api/dashboard/stock`
 - `GET /api/presupuestos`
 - `POST /api/presupuestos`
 - `PATCH /api/presupuestos/[id]`
@@ -271,13 +273,15 @@ En la columna de estado, `Aprobado` se representa en verde, `Pendiente` en amari
 - El dashboard debe ofrecer un filtro por mes que afecte solo los gráficos operativos del mes y no el gráfico anualizado.
 - La composición vigente del dashboard para gráficos es `1 + 3`: arriba el anualizado de aprobados por taller y debajo los tres gráficos mensuales.
 - Los cards de métricas del dashboard deben mantenerse compactos y actuar como atajos hacia la vista `Presupuestos`.
+- Los cards de métricas del dashboard usan altura reducida, con tipografía, íconos y espaciado compactos para no consumir espacio vertical.
 - Al hacer click en un card de estado del dashboard, la app debe abrir `Presupuestos` con ese estado aplicado como filtro.
 - El gráfico anualizado de aprobados debe mostrar todos los meses presentes en `presupuestos`, aunque alguno no tenga aprobados y deba visualizarse en `0`.
 - Indicadores implementados:
-  - distribución mensual de presupuestos por estado en gráfico `pie`
   - gráfico combinado anualizado de aprobados con eje por mes, barras agrupadas por taller y línea de monto total mensual
-  - distribución mensual de presupuestos por marca en gráfico `radar` con escala común entre ejes
   - distribución mensual de presupuestos por taller en gráfico `pie`
+- Sobre el gráfico anualizado de aprobados se muestra una tabla anual de stock para internos con al menos un presupuesto no externo. Agrupa por el mes de `anexusa.aus_feccarga` y excluye las unidades entregadas y facturadas usando `opera.ope_entrega` junto a `stoauto.sa_factura = 1`; la relación operativa es `opera.ope_tipo = 10` y `opera.ope_stoauto = stoauto.sa_codigo`. Para cada unidad restante toma el presupuesto operativo más reciente y muestra: `En análisis` para `Pendiente` (amarillo), `Esperando ingreso` para `Aprobado` sin ingreso (rojo), `En reparación` para `Aprobado` con ingreso sin egreso (verde claro) y `Reparado` para `Aprobado` con ambas fechas (verde oscuro). El card abre el último año con datos y permite consultar los demás años disponibles.
+- En pantallas extra grandes, el resumen de stock ocupa la mitad izquierda de una fila y el gráfico de unidades en operatoria ocupa la mitad derecha con igual altura. Debajo, el gráfico anualizado de aprobados ocupa 4/6 del ancho y `Presupuestos por taller` 2/6, ambos con igual altura; el anualizado toma el año seleccionado en `Stock de unidades con presupuesto` y expone etiquetas monetarias enteras, con fondo blanco y borde suave, sobre sus puntos de monto aprobado. El selector mensual se ubica en el encabezado de `Presupuestos por taller`, que es el único gráfico afectado. La tabla de stock usa encabezados abreviados, padding reducido y scroll horizontal solo cuando sea necesario.
+- La mitad derecha del resumen de stock contiene un gráfico `pie` de ECharts con bordes redondeados que muestra las unidades en operatoria por `En análisis`, `Esperando ingreso` y `En reparación`; excluye `Reparado`. La tabla centra sus datos y representa los valores cero como `-`.
 
 ## Seguimiento de presupuestos
 

@@ -1,6 +1,9 @@
 import sql from "mssql";
 
 import type {
+  StockSummaryDTO,
+  StockSummaryMonthDTO,
+  StockStage,
   UnidadDTO,
   UnidadMarcaOptionDTO,
   UnidadModeloOptionDTO,
@@ -197,4 +200,92 @@ export async function fetchUnidadModeloByMarcaAndCodigo(
     marca: row.marca?.trim() || "",
     modelo: row.modelo?.trim() || "",
   };
+}
+
+/**
+ * La operación comercial de la unidad permite excluir las entregadas y
+ * facturadas, dejando solo los internos que aún forman parte del stock.
+ */
+export async function fetchStockSummaryByInternos(
+  internos: string[],
+  stagesByInterno: Record<string, StockStage>,
+  requestedYear?: number,
+): Promise<StockSummaryDTO> {
+  const uniqueInternos = Array.from(
+    new Set(internos.map((interno) => interno.trim()).filter(Boolean)),
+  );
+  const emptyRows = Array.from({ length: 12 }, (_, index) => ({
+    month: index + 1,
+    analisis: 0,
+    esperandoIngreso: 0,
+    enReparacion: 0,
+    reparado: 0,
+  } satisfies StockSummaryMonthDTO));
+
+  if (!uniqueInternos.length) {
+    return { year: requestedYear ?? new Date().getFullYear(), availableYears: [], rows: emptyRows };
+  }
+
+  const pool = await getSqlPool();
+  const request = pool.request();
+  const values = uniqueInternos.map((interno, index) => {
+    const parameter = `interno${index}`;
+    request.input(parameter, sql.VarChar(32), interno);
+    return `(@${parameter})`;
+  });
+
+  const result = await request.query<{
+    month: number;
+    year: number;
+    interno: string;
+  }>(`
+    WITH internos(interno) AS (
+      SELECT DISTINCT interno FROM (VALUES ${values.join(",")}) AS source(interno)
+    )
+    SELECT
+      YEAR(anx.aus_feccarga) AS year,
+      MONTH(anx.aus_feccarga) AS month,
+      CAST(sa.sa_codigo AS VARCHAR(32)) AS interno
+    FROM internos i
+    INNER JOIN siac.dbo.stoauto sa
+      ON CAST(sa.sa_codigo AS VARCHAR(32)) = i.interno
+     AND sa.sa_tipo = 10
+    INNER JOIN siac.dbo.anexusa anx
+      ON anx.aus_tipo = sa.sa_tipo
+     AND anx.aus_codigo = sa.sa_codigo
+    WHERE anx.aus_feccarga IS NOT NULL
+      AND NOT (
+        sa.sa_factura = 1
+        AND EXISTS (
+          SELECT 1
+          FROM siac.dbo.opera op
+          WHERE op.ope_tipo = 10
+            AND op.ope_stoauto = sa.sa_codigo
+            AND op.ope_entrega IS NOT NULL
+        )
+      )
+  `);
+
+  const availableYears = Array.from(
+    new Set(result.recordset.map((item) => item.year).filter(Number.isInteger)),
+  ).sort((a, b) => b - a);
+  const year = availableYears.includes(requestedYear ?? Number.NaN)
+    ? requestedYear!
+    : (availableYears[0] ?? new Date().getFullYear());
+
+  for (const item of result.recordset) {
+    if (item.year !== year || !item.month || item.month < 1 || item.month > 12) continue;
+
+    const row = emptyRows[item.month - 1];
+    const stage = stagesByInterno[item.interno];
+
+    if (!stage) continue;
+
+    if (stage === "analisis") row.analisis += 1;
+    if (stage === "esperandoIngreso") row.esperandoIngreso += 1;
+    if (stage === "enReparacion") row.enReparacion += 1;
+    if (stage === "reparado") row.reparado += 1;
+  }
+
+  return { year, availableYears, rows: emptyRows };
 }

@@ -83,6 +83,7 @@ import type { AppRole } from "@/lib/auth/central";
 import type {
   PresupuestoDTO,
   PresupuestoEstado,
+  StockSummaryDTO,
   TallerDTO,
   UnidadMarcaOptionDTO,
   UnidadModeloOptionDTO,
@@ -274,20 +275,6 @@ const initialTallerFormState: TallerFormState = {
   activo: "true",
 };
 
-const estadoChartOrder: PresupuestoEstado[] = [
-  "Pendiente",
-  "Revisar",
-  "Aprobado",
-  "Rechazado",
-];
-
-const estadoChartColors: Record<PresupuestoEstado, string> = {
-  Pendiente: "#7c7c7c",
-  Revisar: "#a3a3a3",
-  Aprobado: "#171717",
-  Rechazado: "#d14d41",
-};
-
 function formatMonthFilterLabel(value: string) {
   const [year, month] = value.split("-");
   const date = new Date(Number(year), Number(month) - 1, 1);
@@ -391,6 +378,12 @@ export function DashboardShell({
     ),
   ).sort((a, b) => b.localeCompare(a));
   const [presupuestos, setPresupuestos] = useState(initialPresupuestos);
+  const [stockSummary, setStockSummary] = useState<StockSummaryDTO | null>(null);
+  const [stockYear, setStockYear] = useState<number | null>(null);
+  const [stockSummaryError, setStockSummaryError] = useState<string | null>(null);
+  const [isLoadingStockSummary, setIsLoadingStockSummary] = useState(
+    currentView === "dashboard",
+  );
   const [annualRepairPresupuestos, setAnnualRepairPresupuestos] = useState<
     PresupuestoDTO[]
   >([]);
@@ -474,6 +467,7 @@ export function DashboardShell({
         resolvedDashboardMonth,
     );
   }, [presupuestos, resolvedDashboardMonth]);
+  const selectedStockYear = stockSummary?.year ?? stockYear ?? new Date().getFullYear();
   const historySummary = useMemo(
     () =>
       historyPresupuestos.reduce(
@@ -776,7 +770,12 @@ export function DashboardShell({
       { year: string; month: string; taller: string; cantidad: number; monto: number }
     >();
 
-    for (const presupuesto of presupuestos) {
+    const presupuestosDelAnioStock = presupuestos.filter(
+      (presupuesto) =>
+        getCalendarYearKey(getPresupuestoAnalysisDate(presupuesto)) === String(selectedStockYear),
+    );
+
+    for (const presupuesto of presupuestosDelAnioStock) {
       if (presupuesto.estado !== "Aprobado") {
         continue;
       }
@@ -814,7 +813,7 @@ export function DashboardShell({
     });
     const approvedAnnualMonths = Array.from(
       new Set(
-        presupuestos.map((presupuesto) =>
+        presupuestosDelAnioStock.map((presupuesto) =>
           getCalendarMonthKey(getPresupuestoAnalysisDate(presupuesto)),
         ),
       ),
@@ -849,43 +848,6 @@ export function DashboardShell({
       "#d4d4d4",
     ];
 
-    const presupuestosPorEstadoDelMes = estadoChartOrder.map((estado) => ({
-      name: estado,
-      value: dashboardPresupuestos.filter((presupuesto) => presupuesto.estado === estado)
-        .length,
-      itemStyle: { color: estadoChartColors[estado] },
-    }));
-    const hasEstadoData = presupuestosPorEstadoDelMes.some((item) => item.value > 0);
-
-    const presupuestosPorMesOption: DashboardChartOption = {
-      color: estadoChartOrder.map((estado) => estadoChartColors[estado]),
-      legend: {
-        bottom: 0,
-        itemWidth: 10,
-        itemHeight: 10,
-        textStyle: { fontSize: 11 },
-      },
-      tooltip: {
-        trigger: "item",
-        valueFormatter: (value: TooltipValue) => formatCountTooltipValue(value),
-      },
-      series: [
-        {
-          name: "Presupuestos",
-          type: "pie",
-          radius: ["46%", "76%"],
-          center: ["50%", "43%"],
-          label: {
-            fontSize: 11,
-            formatter: "{b}: {c}",
-          },
-          data: hasEstadoData
-            ? presupuestosPorEstadoDelMes.filter((item) => item.value > 0)
-            : [{ name: "Sin datos", value: 1, itemStyle: { color: "#d4d4d4" } }],
-        },
-      ],
-    };
-
     const talleresDelMes = buildCategoryCounts(
       dashboardPresupuestos.map((presupuesto) => presupuesto.tallerNombre),
       "Sin taller",
@@ -915,72 +877,6 @@ export function DashboardShell({
           data: talleresDelMes.length
             ? talleresDelMes.map(([label, count]) => ({ name: label, value: count }))
             : [{ name: "Sin datos", value: 1, itemStyle: { color: "#d4d4d4" } }],
-        },
-      ],
-    };
-
-    const marcasDelMes = buildCategoryCounts(
-      dashboardPresupuestos.map((presupuesto) => presupuesto.marca),
-      "Sin marca",
-    );
-    const radarSource = marcasDelMes.length ? marcasDelMes : [["Sin datos", 1] as const];
-    const radarMaxValue = Math.max(...radarSource.map(([, count]) => count), 1);
-    const marcasOption: DashboardChartOption = {
-      color: ["#171717"],
-      legend: {
-        bottom: 0,
-        itemWidth: 10,
-        itemHeight: 10,
-        textStyle: { fontSize: 11 },
-      },
-      tooltip: {
-        trigger: "item",
-      },
-      radar: {
-        indicator: radarSource.map(([label]) => ({
-          name: label,
-          max: radarMaxValue,
-        })),
-        radius: "63%",
-        splitNumber: 4,
-        axisName: {
-          color: "#404040",
-          fontSize: 10,
-        },
-        splitLine: {
-          lineStyle: {
-            color: "#e5e5e5",
-          },
-        },
-        splitArea: {
-          areaStyle: {
-            color: ["rgba(245,245,245,0.25)", "rgba(229,229,229,0.25)"],
-          },
-        },
-        axisLine: {
-          lineStyle: {
-            color: "#d4d4d4",
-          },
-        },
-      },
-      series: [
-        {
-          name: "Marcas",
-          type: "radar",
-          symbol: "circle",
-          symbolSize: 6,
-          lineStyle: {
-            width: 2,
-          },
-          areaStyle: {
-            color: "rgba(23,23,23,0.14)",
-          },
-          data: [
-            {
-              value: radarSource.map(([, count]) => count),
-              name: "Cantidad por marca",
-            },
-          ],
         },
       ],
     };
@@ -1066,6 +962,18 @@ export function DashboardShell({
           lineStyle: {
             width: 2,
           },
+          label: {
+            show: true,
+            position: "top",
+            fontSize: 10,
+            color: "#171717",
+            backgroundColor: "#ffffff",
+            borderColor: "#d4d4d4",
+            borderWidth: 1,
+            borderRadius: 3,
+            padding: [2, 4],
+            formatter: (params) => `$ ${formatInteger(Number(params.value))}`,
+          },
           data: approvedAnnualMontoByMonth,
         },
       ],
@@ -1073,11 +981,95 @@ export function DashboardShell({
 
     return {
       aprobadosAnualesPorTallerOption,
-      presupuestosPorMesOption,
-      marcasOption,
       talleresOption,
     };
-  }, [dashboardPresupuestos, presupuestos]);
+  }, [dashboardPresupuestos, presupuestos, selectedStockYear]);
+
+  const stockOperationOption = useMemo<DashboardChartOption>(() => {
+    const activeStages = [
+      { name: "En análisis", value: stockSummary?.rows.reduce((total, row) => total + row.analisis, 0) ?? 0, color: "#fbbf24" },
+      { name: "Esperando ingreso", value: stockSummary?.rows.reduce((total, row) => total + row.esperandoIngreso, 0) ?? 0, color: "#ef4444" },
+      { name: "En reparación", value: stockSummary?.rows.reduce((total, row) => total + row.enReparacion, 0) ?? 0, color: "#86efac" },
+    ];
+    const hasData = activeStages.some((stage) => stage.value > 0);
+
+    return {
+      color: activeStages.map((stage) => stage.color),
+      tooltip: {
+        trigger: "item",
+        valueFormatter: (value: TooltipValue) => formatCountTooltipValue(value),
+      },
+      legend: {
+        bottom: 0,
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { fontSize: 10 },
+      },
+      series: [
+        {
+          name: "Unidades",
+          type: "pie",
+          radius: ["38%", "72%"],
+          center: ["50%", "43%"],
+          label: {
+            fontSize: 10,
+            formatter: "{b}: {c}",
+          },
+          itemStyle: {
+            borderRadius: 9,
+            borderColor: "#fff",
+            borderWidth: 2,
+          },
+          data: hasData
+            ? activeStages.map((stage) => ({
+                name: stage.name,
+                value: stage.value,
+                itemStyle: { color: stage.color },
+              }))
+            : [{ name: "Sin unidades activas", value: 1, itemStyle: { color: "#d4d4d4" } }],
+        },
+      ],
+    };
+  }, [stockSummary]);
+
+  useEffect(() => {
+    if (currentView !== "dashboard") {
+      return;
+    }
+
+    let isCurrent = true;
+
+    async function loadStockSummary() {
+      try {
+        const data = await parseJsonResponse<{ summary: StockSummaryDTO }>(
+          await fetch(
+            `/api/dashboard/stock${stockYear ? `?year=${stockYear}` : ""}`,
+            {
+            cache: "no-store",
+            },
+          ),
+        );
+        if (!isCurrent) return;
+        setStockSummary(data.summary);
+        setStockSummaryError(null);
+      } catch (error) {
+        if (!isCurrent) return;
+        setStockSummary(null);
+        setStockSummaryError(
+          error instanceof Error
+            ? error.message
+            : "No pudimos cargar el resumen de stock.",
+        );
+      } finally {
+        if (isCurrent) setIsLoadingStockSummary(false);
+      }
+    }
+
+    void loadStockSummary();
+    return () => {
+      isCurrent = false;
+    };
+  }, [currentView, stockYear]);
 
   useEffect(() => {
     if (currentView !== "presupuestos") {
@@ -1124,10 +1116,6 @@ export function DashboardShell({
     };
   }, [currentView]);
 
-  useEffect(() => {
-    setPresupuestosPage(1);
-  }, [filters.estado, filters.tallerId, filters.dominio, filters.interno]);
-
   function updateForm<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -1137,6 +1125,11 @@ export function DashboardShell({
     value: ExternalFormState[K],
   ) {
     setExternalForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateFilters(update: Partial<FilterState>) {
+    setFilters((current) => ({ ...current, ...update }));
+    setPresupuestosPage(1);
   }
 
   function resetForm() {
@@ -1744,76 +1737,62 @@ export function DashboardShell({
               />
             </div>
 
-            <Card className="border-border/70 shadow-none">
-              <CardContent className="flex flex-col gap-3 px-3 py-3 md:flex-row md:items-end md:justify-between">
-                <div className="grid gap-1">
-                  <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
-                    Filtro mensual
-                  </p>
-                  <p className="text-sm font-medium">
-                    {resolvedDashboardMonth === "all"
-                      ? "Todos los meses disponibles"
-                      : formatMonthFilterLabel(resolvedDashboardMonth)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Este selector modifica estado, taller y marca. El anualizado queda fijo.
-                  </p>
-                </div>
-                <div className="w-full md:w-[260px]">
-                  <Select
-                    value={resolvedDashboardMonth}
-                    onValueChange={(value) => setDashboardMonth(value ?? "all")}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Seleccionar mes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los meses</SelectItem>
-                      {availableDashboardMonths.map((month) => (
-                        <SelectItem key={month} value={month}>
-                          {formatMonthFilterLabel(month)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-
             <div className="grid gap-4">
+              <div className="grid gap-4 xl:grid-cols-2 xl:items-stretch">
+              <StockSummaryCard
+                summary={stockSummary}
+                error={stockSummaryError}
+                isLoading={isLoadingStockSummary}
+                onYearChange={setStockYear}
+              />
               <ChartCard
-                title="Aprobados anualizados por taller"
-                description="Cantidad de presupuestos aprobados por mes y taller, con línea de monto total aprobado."
+                title="Unidades en operatoria"
+                description="Distribución de stock activo por etapa. Excluye las unidades reparadas."
+                className="h-full"
               >
-                <EChartsSurface
-                  option={chartOptions.aprobadosAnualesPorTallerOption}
-                  height={360}
-                />
+                <EChartsSurface option={stockOperationOption} height={390} />
               </ChartCard>
+              </div>
 
-              <div className="grid gap-4 xl:grid-cols-3">
-                <ChartCard
-                  title="Presupuestos por mes"
-                  description="Distribución por estado del mes seleccionado."
-                >
-                  <EChartsSurface
-                    option={chartOptions.presupuestosPorMesOption}
-                    height={340}
-                  />
-                </ChartCard>
+              <div className="grid gap-4 xl:grid-cols-6 xl:items-stretch">
+                <div className="grid gap-4 xl:col-span-4">
+                  <ChartCard
+                    title="Aprobados anualizados por taller"
+                    description="Cantidad de presupuestos aprobados por mes y taller, con línea de monto total aprobado."
+                    className="h-full"
+                  >
+                    <EChartsSurface
+                      option={chartOptions.aprobadosAnualesPorTallerOption}
+                      height={360}
+                    />
+                  </ChartCard>
+
+                </div>
 
                 <ChartCard
                   title="Presupuestos por taller"
                   description="Participación de cada taller dentro del mes seleccionado."
+                  className="h-full xl:col-span-2"
+                  headerAction={
+                    <Select
+                      value={resolvedDashboardMonth}
+                      onValueChange={(value) => setDashboardMonth(value ?? "all")}
+                    >
+                      <SelectTrigger className="h-8 w-full text-xs sm:w-[175px]">
+                        <SelectValue placeholder="Seleccionar mes" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los meses</SelectItem>
+                        {availableDashboardMonths.map((month) => (
+                          <SelectItem key={month} value={month}>
+                            {formatMonthFilterLabel(month)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  }
                 >
-                  <EChartsSurface option={chartOptions.talleresOption} height={340} />
-                </ChartCard>
-
-                <ChartCard
-                  title="Presupuestos por marca"
-                  description="Radar de concentración por marca en el mes seleccionado."
-                >
-                  <EChartsSurface option={chartOptions.marcasOption} height={340} />
+                  <EChartsSurface option={chartOptions.talleresOption} height={360} />
                 </ChartCard>
               </div>
             </div>
@@ -2576,21 +2555,21 @@ export function DashboardShell({
                       <Input
                         value={filters.interno}
                         onChange={(event) =>
-                          setFilters((current) => ({ ...current, interno: event.target.value }))
+                          updateFilters({ interno: event.target.value })
                         }
                         placeholder="Filtrar por interno"
                       />
                       <Input
                         value={filters.dominio}
                         onChange={(event) =>
-                          setFilters((current) => ({ ...current, dominio: event.target.value }))
+                          updateFilters({ dominio: event.target.value })
                         }
                         placeholder="Filtrar por dominio"
                       />
                       <Select
                         value={filters.tallerId}
                         onValueChange={(value) =>
-                          setFilters((current) => ({ ...current, tallerId: value ?? "all" }))
+                          updateFilters({ tallerId: value ?? "all" })
                         }
                       >
                         <SelectTrigger className="w-full">
@@ -2608,7 +2587,7 @@ export function DashboardShell({
                       <Select
                         value={filters.estado}
                         onValueChange={(value) =>
-                          setFilters((current) => ({ ...current, estado: value ?? "all" }))
+                          updateFilters({ estado: value ?? "all" })
                         }
                       >
                         <SelectTrigger className="w-full">
@@ -3406,19 +3385,19 @@ function MetricTile({
         onClick={onClick}
         className="block w-full text-left transition-colors hover:bg-secondary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <CardContent className="px-3 py-2.5">
-          <div className="flex items-start justify-between gap-3">
+        <CardContent className="px-3 py-1.5">
+          <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+            <p className="text-[0.6rem] uppercase leading-none tracking-[0.24em] text-muted-foreground">
               {label}
             </p>
-            <p className="mt-0.5 font-heading text-3xl leading-none tracking-[-0.08em]">
+            <p className="mt-0.5 font-heading text-2xl leading-none tracking-[-0.08em]">
               {value}
             </p>
-            <p className="mt-1 text-[0.78rem] text-muted-foreground">{caption}</p>
+            <p className="mt-0.5 text-[0.68rem] leading-none text-muted-foreground">{caption}</p>
           </div>
-          <div className="rounded-md border border-border/70 bg-secondary/35 p-1.5 text-muted-foreground">
-            <Icon className="size-3.5" />
+          <div className="rounded-md border border-border/70 bg-secondary/35 p-1 text-muted-foreground">
+            <Icon className="size-3" />
           </div>
           </div>
         </CardContent>
@@ -3431,20 +3410,150 @@ function ChartCard({
   title,
   description,
   children,
+  className,
+  headerAction,
 }: {
   title: string;
   description: string;
   children: ReactNode;
+  className?: string;
+  headerAction?: ReactNode;
 }) {
   return (
-    <Card className="border-border/70 shadow-none">
+    <Card className={`border-border/70 shadow-none ${className || ""}`}>
       <CardHeader className="border-b border-border/70 pb-3">
-        <CardTitle className="font-heading text-xl tracking-[-0.04em]">
-          {title}
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="font-heading text-xl tracking-[-0.04em]">
+              {title}
+            </CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </div>
+          {headerAction}
+        </div>
       </CardHeader>
       <CardContent className="p-3">{children}</CardContent>
+    </Card>
+  );
+}
+
+function StockSummaryCard({
+  summary,
+  error,
+  isLoading,
+  onYearChange,
+}: {
+  summary: StockSummaryDTO | null;
+  error: string | null;
+  isLoading: boolean;
+  onYearChange: (year: number) => void;
+}) {
+  const totals = (summary?.rows || []).reduce(
+    (total, row) => ({
+      analisis: total.analisis + row.analisis,
+      esperandoIngreso: total.esperandoIngreso + row.esperandoIngreso,
+      enReparacion: total.enReparacion + row.enReparacion,
+      reparado: total.reparado + row.reparado,
+    }),
+    {
+      analisis: 0,
+      esperandoIngreso: 0,
+      enReparacion: 0,
+      reparado: 0,
+    },
+  );
+  const monthLabel = new Intl.DateTimeFormat("es-AR", { month: "short" });
+  const displayStockValue = (value: number) => (value === 0 ? "-" : String(value));
+  const totalGeneral = (row: typeof totals) =>
+    row.analisis + row.esperandoIngreso + row.enReparacion + row.reparado;
+
+  return (
+    <Card className="border-border/70 shadow-none">
+      <CardHeader className="border-b border-border/70 px-3 py-2.5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="font-heading text-lg tracking-[-0.04em]">
+              Stock de unidades con presupuesto
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Unidades en stock de {summary?.year ?? "SIAC"}, por fecha de carga y etapa operativa.
+            </CardDescription>
+          </div>
+          {summary?.availableYears.length ? (
+            <Select
+              value={String(summary.year)}
+              onValueChange={(value) => onYearChange(Number(value))}
+            >
+              <SelectTrigger className="h-7 w-full text-xs sm:w-[96px]">
+                <SelectValue placeholder="Año" />
+              </SelectTrigger>
+              <SelectContent>
+                {summary.availableYears.map((year) => (
+                  <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+        </div>
+      </CardHeader>
+      <CardContent className="p-2">
+        {isLoading ? <p className="text-xs text-muted-foreground">Calculando stock...</p> : null}
+        {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        {summary ? (
+          <div className="overflow-x-auto">
+            <Table className="min-w-[460px] text-[0.68rem]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="h-8 px-1.5 text-center">Mes</TableHead>
+                  <TableHead className="h-8 bg-amber-100 px-1 text-center text-amber-900" title="En análisis">
+                    <span className="inline-flex items-center justify-center gap-1"><Search className="size-3" />Anál.</span>
+                  </TableHead>
+                  <TableHead className="h-8 bg-red-100 px-1 text-center text-red-800" title="Esperando ingreso">
+                    <span className="inline-flex items-center justify-center gap-1"><LoaderCircle className="size-3" />Espera</span>
+                  </TableHead>
+                  <TableHead className="h-8 bg-emerald-100 px-1 text-center text-emerald-800" title="En reparación">
+                    <span className="inline-flex items-center justify-center gap-1"><Settings className="size-3" />Repar.</span>
+                  </TableHead>
+                  <TableHead className="h-8 bg-emerald-700 px-1 text-center text-white" title="Reparado">
+                    <span className="inline-flex items-center justify-center gap-1"><ShieldCheck className="size-3" />Listo</span>
+                  </TableHead>
+                  <TableHead className="h-8 px-1.5 text-center" title="Total">
+                    <span className="inline-flex items-center justify-center gap-1"><ClipboardList className="size-3" />Total</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {summary.rows.map((row) => {
+                  const monthTotals = {
+                    analisis: row.analisis,
+                    esperandoIngreso: row.esperandoIngreso,
+                    enReparacion: row.enReparacion,
+                    reparado: row.reparado,
+                  };
+                  return (
+                    <TableRow key={row.month}>
+                      <TableCell className="px-1.5 py-1 text-center font-medium capitalize">{monthLabel.format(new Date(2026, row.month - 1, 1))}</TableCell>
+                      <TableCell className="px-1 py-1 text-center text-amber-800">{displayStockValue(row.analisis)}</TableCell>
+                      <TableCell className="px-1 py-1 text-center text-red-700">{displayStockValue(row.esperandoIngreso)}</TableCell>
+                      <TableCell className="px-1 py-1 text-center text-emerald-700">{displayStockValue(row.enReparacion)}</TableCell>
+                      <TableCell className="px-1 py-1 text-center font-medium text-emerald-800">{displayStockValue(row.reparado)}</TableCell>
+                      <TableCell className="px-1.5 py-1 text-center font-semibold">{displayStockValue(totalGeneral(monthTotals))}</TableCell>
+                    </TableRow>
+                  );
+                })}
+                <TableRow className="bg-secondary/35 font-semibold">
+                  <TableCell className="px-1.5 py-1.5 text-center">Total</TableCell>
+                  <TableCell className="px-1 py-1.5 text-center text-amber-800">{displayStockValue(totals.analisis)}</TableCell>
+                  <TableCell className="px-1 py-1.5 text-center text-red-700">{displayStockValue(totals.esperandoIngreso)}</TableCell>
+                  <TableCell className="px-1 py-1.5 text-center text-emerald-700">{displayStockValue(totals.enReparacion)}</TableCell>
+                  <TableCell className="px-1 py-1.5 text-center text-emerald-800">{displayStockValue(totals.reparado)}</TableCell>
+                  <TableCell className="px-1.5 py-1.5 text-center">{displayStockValue(totalGeneral(totals))}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        ) : null}
+      </CardContent>
     </Card>
   );
 }

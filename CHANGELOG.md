@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-11-10
+
+- Se redujo aproximadamente a la mitad la altura de los cards de métricas del Dashboard, compactando valores, textos auxiliares e íconos sin perder los atajos de navegación.
+- Se agregó al Dashboard el resumen anual de stock de unidades con presupuesto, ubicado antes del gráfico de aprobados anualizados. La tabla separa Toyota y Multimarca, muestra en stock, entregado y facturado, subtotales y total general para los doce meses del año seleccionado.
+- El resumen toma internos únicos de presupuestos no externos, usa `anexusa.aus_feccarga` como fecha de ingreso y consulta `opera.ope_entrega` mediante `ope_tipo = 10` y `ope_stoauto = sa_codigo`, junto con `sa_factura = 1`, para determinar unidades entregadas y facturadas en SIAC. No persiste datos analíticos en MongoDB.
+- Se incorporó `GET /api/dashboard/stock`, protegido por la sesión central, y se ajustó el reinicio de paginación de filtros para evitar actualizaciones de estado desde un efecto.
+- El resumen de stock ahora abre automáticamente el último año disponible en SIAC y ofrece selector de año, evitando una tabla vacía cuando los presupuestos están asociados a unidades históricas.
+- Se agregaron 12 presupuestos de demostración para internos recientes de SIAC: seis con fecha de pedido de octubre y seis de noviembre de 2026, distribuidos entre los talleres existentes para alimentar el seguimiento y el resumen anual de stock.
+- Se compactó la tabla de stock y se la ubicó en media fila en pantallas grandes, reservando la mitad restante para un gráfico futuro; el anualizado de aprobados conserva su fila propia de ancho completo.
+- El resumen de stock dejó de mostrar la columna de entregadas y ahora distribuye las unidades aún en stock por sus estadios operativos: En análisis, Esperando ingreso, En reparación y Reparado. La etapa se obtiene desde el presupuesto más reciente de cada interno.
+- Se unificó el resumen de stock sin separar por marca y se incorporaron íconos y colores por etapa: análisis amarillo, espera rojo, reparación verde claro y reparado verde oscuro.
+- Se completó la mitad derecha de la fila de stock con un gráfico circular ECharts de unidades en operatoria, excluyendo las reparadas. La tabla ahora centra valores y muestra guiones para los ceros.
+- Se reubicó el filtro mensual debajo del gráfico anualizado de aprobados y se igualó la altura del gráfico de unidades en operatoria con el card de stock.
+- Se eliminaron del Dashboard los gráficos y las lógicas de `Presupuestos por mes` y `Presupuestos por marca`, que ya no se utilizan. Se conserva el gráfico mensual por taller.
+- Se reorganizó la analítica restante en una fila 4/6 + 2/6: el anualizado de aprobados queda a la izquierda y presupuestos por taller a la derecha, con el filtro mensual debajo del anualizado.
+- Se eliminó el card independiente del filtro mensual y se integró su selector en el encabezado de `Presupuestos por taller`, único gráfico que utiliza ese filtro.
+- El anualizado de aprobados ahora se sincroniza con el año seleccionado en el resumen de stock y su card iguala la altura del gráfico por taller.
+- El gráfico anualizado muestra ahora etiquetas con el importe de monto aprobado sobre cada punto de su línea.
+- Se mejoró la legibilidad de las etiquetas monetarias del anualizado con fondo blanco, borde y padding.
+- Las etiquetas de monto aprobado del anualizado ahora omiten decimales.
+- Se cargaron 40 presupuestos internos de ejemplo en MongoDB usando internos existentes y verificados contra SQL Server. La muestra incorpora los cuatro estados operativos, importes netos y con IVA, valores de toma, prioridades, fechas de pedido e ingreso/egreso cuando corresponde, observaciones y detalle.
+- Como el catálogo estaba vacío, se crearon manualmente tres talleres de ejemplo para asignar la muestra: `Taller Mecánica Norte`, `Servicio Integral Centro` y `Taller Diesel Sur`.
+
 ## 2026-10-16
 
 - Las acciones de alta y exportación de la vista `Presupuestos` ahora se disponen en una única fila compacta. El botón `Exportar Excel` se destaca en verde.
